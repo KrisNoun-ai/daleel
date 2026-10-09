@@ -343,32 +343,32 @@ export const LEBANESE_28_COHORT: ClassScatterPoint[] = [
 
 export const POD_MESH_NODES: PodCollaborationNode[] = [
   {
-    podName: 'Operations & Biothermal Bench',
+    podName: 'Kitchen Operations & Science',
     leadStudent: 'Samir Haddad',
     membersCount: 7,
     exchangeVelocity: 94,
-    crossSubjectIntegrations: ['Physical Science (NGSS)', 'Thermodynamics', 'Oven Kinetics'],
+    crossSubjectIntegrations: ['Physical Science', 'Heat Kinetics', 'Recipe Isolation'],
   },
   {
-    podName: 'Unit Economics & Algebra Pod',
+    podName: 'Unit Economics & Math',
     leadStudent: 'Jad Mansour',
     membersCount: 7,
     exchangeVelocity: 91,
-    crossSubjectIntegrations: ['Linear Algebra (CCSS)', 'Batch Scalability', 'Profit Margins'],
+    crossSubjectIntegrations: ['Linear Algebra', 'Batch Costing', 'Profit Margins'],
   },
   {
-    podName: 'Creative Branding & Packaging',
+    podName: 'Branding & Packaging',
     leadStudent: 'Yara Khoury',
     membersCount: 7,
     exchangeVelocity: 96,
-    crossSubjectIntegrations: ['Visual Communication', 'Regulatory Labeling', 'Customer Empathy'],
+    crossSubjectIntegrations: ['Visual Communication', 'Labeling Standards', 'Customer Empathy'],
   },
   {
-    podName: 'Sensory QA & Chemosensory Lab',
+    podName: 'Quality & Food Safety',
     leadStudent: 'Nour Saliba',
     membersCount: 7,
     exchangeVelocity: 88,
-    crossSubjectIntegrations: ['Chemosensory Biology', 'Water Activity (aw)', 'Food Safety'],
+    crossSubjectIntegrations: ['Food Biology', 'Water Activity (aw)', 'Shelf Life'],
   },
 ];
 

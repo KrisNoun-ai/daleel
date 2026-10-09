@@ -16,12 +16,12 @@ export const CandyCrushMap: React.FC<CandyCrushMapProps> = ({ onSelectLevel }) =
   const getMeanderOffset = (index: number) => {
     const offsets = [
       'translate-x-0',                         // Lvl 1: Center-left
-      'translate-x-16 sm:translate-x-32',     // Lvl 2: Curve Right
-      'translate-x-24 sm:translate-x-48',     // Lvl 3: Peak Right
-      'translate-x-10 sm:translate-x-20',     // Lvl 4: Transition
-      '-translate-x-12 sm:-translate-x-24',   // Lvl 5: Peak Left
-      '-translate-x-4 sm:-translate-x-8',     // Lvl 6: Curve Center
-      'translate-x-16 sm:translate-x-36',     // Lvl 7: Final Peak Right (Crown)
+      'translate-x-4 sm:translate-x-32',       // Lvl 2: Curve Right
+      'translate-x-6 sm:translate-x-48',       // Lvl 3: Peak Right
+      'translate-x-2 sm:translate-x-20',       // Lvl 4: Transition
+      '-translate-x-4 sm:-translate-x-24',     // Lvl 5: Peak Left
+      '-translate-x-2 sm:-translate-x-8',      // Lvl 6: Curve Center
+      'translate-x-5 sm:translate-x-36',       // Lvl 7: Final Peak Right (Crown)
     ];
     return offsets[index % offsets.length];
   };
@@ -75,7 +75,7 @@ export const CandyCrushMap: React.FC<CandyCrushMapProps> = ({ onSelectLevel }) =
   };
 
   return (
-    <div className="relative w-full overflow-hidden rounded-[32px] bg-gradient-to-b from-[#DCFCE7] via-[#E0F2FE] to-[#FEF3C7] p-6 sm:p-12 border-2 border-[#E2E8F0] shadow-sm">
+    <div className="relative w-full overflow-hidden rounded-[32px] bg-gradient-to-b from-[#DCFCE7] via-[#E0F2FE] to-[#FEF3C7] p-3 sm:p-12 border-2 border-[#E2E8F0] shadow-sm">
 
 
       {/* Intro Heading */}

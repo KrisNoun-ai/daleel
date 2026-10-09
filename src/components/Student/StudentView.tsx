@@ -162,8 +162,8 @@ export const StudentView: React.FC = () => {
         /* Direct Socratic Mentor Desk for the Selected Level */
         <div className="space-y-5 animate-in fade-in duration-200">
           {/* Socratic Desk Top Bar */}
-          <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-stone-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-3.5">
               <button
                 type="button"
                 onClick={() => setIsDeskOpen(false)}
@@ -192,7 +192,7 @@ export const StudentView: React.FC = () => {
             </div>
 
             {/* Field Professional Selector: Socratic Mentor vs Dr. Wissam Sammouri */}
-            <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-2xl border border-stone-200 text-xs">
+            <div className="flex items-center justify-center gap-1 bg-stone-100 p-1 rounded-2xl border border-stone-200 text-xs w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setActiveMentorPersona('socratic')}

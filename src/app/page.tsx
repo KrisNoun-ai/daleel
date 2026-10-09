@@ -23,7 +23,7 @@ const MainContent: React.FC = () => {
       <TeacherNotificationPopup />
 
       {/* 3. Main Page Surface */}
-      <main className="flex-1 mx-auto w-full max-w-6xl px-4 sm:px-6 py-8">
+      <main className="flex-1 mx-auto w-full max-w-6xl px-3 sm:px-6 py-4 sm:py-8 overflow-x-hidden">
         {currentView === 'student' && <StudentView />}
         {currentView === 'teacher' && <TeacherView />}
         {currentView === 'parent' && <ParentLedgerView />}

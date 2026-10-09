@@ -686,24 +686,24 @@ export const TeacherView: React.FC = () => {
             </div>
           </div>
 
-          {/* ROW 3: 42-STYLE PEER-TO-PEER POD MESH DENSITY */}
-          <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+          {/* ROW 3: STUDENT PROJECT PODS & COLLABORATION */}
+          <div className="bg-white rounded-3xl border border-stone-200 p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-100 pb-3 gap-2">
               <div>
                 <h3 className="font-serif text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Network className="h-4 w-4 text-emerald-800" />
-                  <span>École 42 Peer-to-Peer Pod Mesh Density & Knowledge Transfer</span>
+                  <Users className="h-4 w-4 text-emerald-800" />
+                  <span>Student Project Pods & Collaboration</span>
                 </h3>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Real-time synchronization across 4 cross-disciplinary Grade 9 student pods
+                  Real-time activity and cross-disciplinary progress across 4 student project pods
                 </p>
               </div>
-              <span className="text-[10px] font-mono bg-purple-50 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-full font-bold">
-                Zero Teacher Silos
+              <span className="text-[10px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full font-bold self-start sm:self-auto">
+                Active Squads
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {podNodes.map((pod) => (
                 <div
                   key={pod.podName}
@@ -728,9 +728,9 @@ export const TeacherView: React.FC = () => {
                         style={{ width: `${pod.exchangeVelocity}%` }}
                       />
                     </div>
-                    <div className="flex flex-wrap gap-1 text-[9px] text-stone-500 pt-1">
+                    <div className="flex flex-wrap gap-1 text-[10px] text-stone-600 pt-1">
                       {pod.crossSubjectIntegrations.map((sub) => (
-                        <span key={sub} className="bg-white border border-stone-200 px-1.5 py-0.5 rounded">
+                        <span key={sub} className="bg-white border border-stone-200 px-2 py-0.5 rounded font-medium">
                           {sub}
                         </span>
                       ))}
@@ -741,41 +741,41 @@ export const TeacherView: React.FC = () => {
             </div>
           </div>
 
-          {/* ROW 4: COHORT ROSTER & REAL-TIME ANOMALY RADAR (ALL 28 STUDENTS) */}
-          <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-xs space-y-4">
+          {/* ROW 4: GRADE 9 STUDENT ROSTER */}
+          <div className="bg-white rounded-3xl border border-stone-200 p-5 sm:p-6 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-100 pb-3 gap-3">
               <div>
                 <h3 className="font-serif text-base font-bold text-slate-900 flex items-center gap-2">
                   <Users className="h-4 w-4 text-emerald-800" />
-                  <span>Grade 9 Cohort Telemetry Matrix (N=28 Lebanese Students)</span>
+                  <span>Grade 9 Student Roster (28 Students)</span>
                 </h3>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Click any student to inspect individual 360° radar and longitudinal batches
+                  Click any student to view detailed lab progress and teacher feedback
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <input
                   type="text"
                   value={rosterSearch}
                   onChange={(e) => setRosterSearch(e.target.value)}
-                  placeholder="Filter student name..."
-                  className="px-3 py-1.5 rounded-xl border border-stone-200 text-xs bg-stone-50 text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                  placeholder="Search student name..."
+                  className="w-full sm:w-60 px-3 py-1.5 rounded-xl border border-stone-200 text-xs bg-stone-50 text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-700"
                 />
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto rounded-2xl border border-stone-100">
+              <table className="w-full min-w-[620px] text-left text-xs">
                 <thead>
-                  <tr className="border-b border-stone-100 text-[10px] font-mono uppercase text-stone-400">
-                    <th className="pb-2.5 font-semibold">Student</th>
-                    <th className="pb-2.5 font-semibold">Learner Cluster</th>
-                    <th className="pb-2.5 font-semibold">PE Stamina</th>
-                    <th className="pb-2.5 font-semibold">Focus Mins</th>
-                    <th className="pb-2.5 font-semibold">Peer Reviews</th>
-                    <th className="pb-2.5 font-semibold">Telemetry Status</th>
-                    <th className="pb-2.5 font-semibold text-right">Action</th>
+                  <tr className="border-b border-stone-100 bg-stone-50/70 text-[10px] font-mono uppercase text-stone-500">
+                    <th className="py-2.5 px-3 font-semibold">Student</th>
+                    <th className="py-2.5 px-2 font-semibold">Focus Area</th>
+                    <th className="py-2.5 px-2 font-semibold">Physical Stamina</th>
+                    <th className="py-2.5 px-2 font-semibold">Lab Focus</th>
+                    <th className="py-2.5 px-2 font-semibold">Peer Feedback</th>
+                    <th className="py-2.5 px-2 font-semibold">Status</th>
+                    <th className="py-2.5 px-3 font-semibold text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
@@ -791,46 +791,46 @@ export const TeacherView: React.FC = () => {
                           isTarget ? 'bg-emerald-50/40 font-semibold' : ''
                         }`}
                       >
-                        <td className="py-2.5 text-slate-900 flex items-center gap-2">
+                        <td className="py-2.5 px-3 text-slate-900 flex items-center gap-2">
                           <span
-                            className="h-2 w-2 rounded-full"
+                            className="h-2 w-2 rounded-full shrink-0"
                             style={{ backgroundColor: getClusterColor(s.cluster) }}
                           />
-                          <span>{s.studentName}</span>
+                          <span className="whitespace-nowrap">{s.studentName}</span>
                           {isTarget && (
                             <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-mono">
                               Active
                             </span>
                           )}
                         </td>
-                        <td className="py-2.5 text-stone-600">
+                        <td className="py-2.5 px-2 text-stone-600 whitespace-nowrap">
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 border border-stone-200">
                             {s.cluster}
                           </span>
                         </td>
-                        <td className="py-2.5 font-mono text-slate-700">
+                        <td className="py-2.5 px-2 font-mono text-slate-700 whitespace-nowrap">
                           {s.peStaminaIndex}/100
                         </td>
-                        <td className="py-2.5 font-mono text-emerald-800">
+                        <td className="py-2.5 px-2 font-mono text-emerald-800 whitespace-nowrap">
                           {s.focusDurationMins} min
                         </td>
-                        <td className="py-2.5 font-mono text-purple-700">
+                        <td className="py-2.5 px-2 font-mono text-purple-700 whitespace-nowrap">
                           {s.peerReviews} reviews
                         </td>
-                        <td className="py-2.5">
+                        <td className="py-2.5 px-2 whitespace-nowrap">
                           {studentAnomaly ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                               <AlertTriangle className="h-3 w-3" />
-                              Fair Test Deviation
+                              Needs Variable Review
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                               <CheckCircle2 className="h-3 w-3" />
-                              Optimal Mesh
+                              On Track
                             </span>
                           )}
                         </td>
-                        <td className="py-2.5 text-right">
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => {
@@ -1076,10 +1076,10 @@ export const TeacherView: React.FC = () => {
                 </p>
               </div>
 
-              {/* 42-Mesh Reciprocity */}
+              {/* Peer Collaboration */}
               <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 text-stone-700 space-y-1">
                 <strong className="block text-slate-900 font-semibold">
-                  42-Style Peer Mesh Dynamics:
+                  Peer Collaboration Dynamics:
                 </strong>
                 <p className="text-[11px] leading-relaxed">
                   {targetStudent.name} has completed <strong>{targetStudent.peerReviewsCompleted} peer reviews</strong> with a collaborative velocity of <strong>{targetStudent.collaborativeVelocity}%</strong> across Grade 9 pods.
@@ -1138,7 +1138,7 @@ export const TeacherView: React.FC = () => {
                 </h3>
                 <span className="text-[10px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Live Cohort Telemetry
+                  Live Classroom Activity
                 </span>
               </div>
               <p className="text-xs text-stone-500">
@@ -1191,12 +1191,12 @@ export const TeacherView: React.FC = () => {
             type="button"
             onClick={() =>
               sendTeacherCopilotMessageToGemini(
-                'Explain the financial ROI of the 42-style peer mesh vs. traditional lecture.'
+                'Explain how student pod collaboration compares to traditional lecture.'
               )
             }
             className="whitespace-nowrap px-3.5 py-1.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-800 transition-colors font-medium cursor-pointer"
           >
-            Explain financial ROI of peer mesh
+            Student collaboration vs. traditional lecture
           </button>
           <button
             type="button"
