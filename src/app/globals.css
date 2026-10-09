@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #F9F8F5;
+  --foreground: #18221B;
+  --surface-panel: #FFFFFF;
+  --border-subtle: #E8E6DF;
+  --forest-dark: #223528;
+  --forest-moss: #2E4034;
+  --amber-warm: #C28E3A;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* 3D Tactile Candy Crush Button Styling */
+.candy-node {
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 
+    0 10px 20px -3px rgba(0, 0, 0, 0.22),
+    0 4px 6px -2px rgba(0, 0, 0, 0.1),
+    inset 0 4px 5px rgba(255, 255, 255, 0.7),
+    inset 0 -5px 8px rgba(0, 0, 0, 0.25);
+}
+
+.candy-node:hover {
+  transform: translateY(-4px) scale(1.06);
+  filter: brightness(1.08);
+}
+
+.candy-node:active {
+  transform: translateY(2px) scale(0.96);
+  box-shadow: 
+    0 4px 8px -2px rgba(0, 0, 0, 0.2),
+    inset 0 2px 4px rgba(255, 255, 255, 0.4),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Winding Peppermint Trail Background */
+.peppermint-road {
+  background: repeating-linear-gradient(
+    45deg,
+    #FFFFFF,
+    #FFFFFF 12px,
+    #A5D6A7 12px,
+    #A5D6A7 24px
+  );
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Smooth Floating Animation */
+@keyframes soft-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float {
+  animation: soft-float 3s ease-in-out infinite;
+}
+
+/* Custom Clean Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F9F8F5;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D8D5CD;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #BAB6AC;
+}
