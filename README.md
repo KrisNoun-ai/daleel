@@ -9,7 +9,7 @@
 ### 1. Student Experience
 - **Milestone Level Map**: 7 progressive incubator challenges from raw nutritional formulation to final investor pitch.
 - **Socratic Mentor Desk**: Direct interactive inquiry guiding students through variable isolation, chemistry, and unit economics without giving away direct answers.
-- **Field Professional Consultation**: Direct consultation channel with industry specialist **Dr. Wissam Sammouri** (*Biochemist & Food Science Advisor*).
+- **Field Professional Consultation**: Direct consultation channel with industry specialist 
 - **Interactive Tooling**: Live batch formulation simulator, nutritional density calculator, cost curve modeling, packaging studio, and pitch deck builder.
 
 ### 2. Teacher Faculty Studio
