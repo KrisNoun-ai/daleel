@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AQ.Ab8RN6Lf6RSELJj4XD36nGSh689GFf_IXOdO0D0Jqyht8_RSrw';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const MODEL_NAME = 'gemini-3.5-flash-lite';
 
 export async function POST(req: Request) {
   try {
+    if (!GEMINI_API_KEY) {
+      console.error('Missing GEMINI_API_KEY in environment variables.');
+      return NextResponse.json(
+        { error: 'Server configuration error: GEMINI_API_KEY is not configured.' },
+        { status: 500 }
+      );
+    }
     const body = await req.json();
     const { mode, message, history = [], contextData = {} } = body;
 
