@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import {
   AppView,
   SweetenerType,
@@ -15,6 +15,19 @@ import {
   LearnerCluster,
   PodCollaborationNode,
 } from '../types';
+import {
+  ClaimArtifact,
+  TurnClassifierResult,
+  VentureBlueprint,
+} from '../types/venture';
+import {
+  REFERENCE_BLUEPRINTS,
+  TRAILSPARK_REFERENCE_BLUEPRINT,
+} from '../data/referenceBlueprints';
+import {
+  broadcastClassroomEvent,
+  subscribeClassroomEvents,
+} from '../lib/realtimeBus';
 
 export const LEBANESE_DEMO_STUDENTS: StudentProfile[] = [
   {
@@ -535,6 +548,64 @@ interface OmniMeshContextType {
   scatterPoints: ClassScatterPoint[];
   radarData: SkillRadarPoint[];
   podNodes: PodCollaborationNode[];
+
+  // Phase 1: Teacher-Configurable VentureBlueprint, Claim-First Gate & Anti-Leakage Stall State
+  activeBlueprint: VentureBlueprint;
+  availableBlueprints: VentureBlueprint[];
+  activateBlueprint: (blueprint: VentureBlueprint) => void;
+  addAndActivateBlueprint: (blueprint: VentureBlueprint) => void;
+  isCoDesignerOpen: boolean;
+  setIsCoDesignerOpen: (open: boolean) => void;
+  claimsByLevel: Record<number, ClaimArtifact>;
+  submitInitialClaim: (levelNumber: number, claimText: string) => void;
+  stallCountByLevel: Record<number, number>;
+  recommendTeacherCallByLevel: Record<number, boolean>;
+  lastTurnClassification: TurnClassifierResult | null;
+
+  // Phase 2: Co-Orchestration, Human Override, Voice Defense & Join-by-Code
+  pausedStudentIds: Record<string, boolean>;
+  toggleAiPauseForStudent: (studentId: string) => void;
+  sendDirectTeacherMessage: (studentId: string, text: string) => void;
+  studentSignals: Record<string, { misconceptionTag: string | null; confidenceTag: string }>;
+  classJoinCode: string;
+  isJoinModalOpen: boolean;
+  setIsJoinModalOpen: (open: boolean) => void;
+  joinClassWithCode: (code: string, studentName: string) => { ok: boolean; error?: string };
+  isPortfolioModalOpen: boolean;
+  setIsPortfolioModalOpen: (open: boolean) => void;
+  vivaSubmissions: Record<
+    number,
+    {
+      transcript: string;
+      durationSeconds: number;
+      evaluation: {
+        overallReadiness: string;
+        strengths: string[];
+        followUpQuestion: string;
+        criterionScores: Array<{ criterion: string; level: string; note: string }>;
+      };
+      submittedAt: string;
+    }
+  >;
+  saveVivaSubmission: (
+    levelNumber: number,
+    submission: {
+      transcript: string;
+      durationSeconds: number;
+      evaluation: {
+        overallReadiness: string;
+        strengths: string[];
+        followUpQuestion: string;
+        criterionScores: Array<{ criterion: string; level: string; note: string }>;
+      };
+    }
+  ) => void;
+  completedLevels: number[];
+  completeLevel: (levelNumber: number) => void;
+  parentNotes: Array<{ id: string; studentId: string; text: string; timestamp: string }>;
+  sendParentEncouragement: (text: string) => void;
+  exportStudentDataJson: () => void;
+  deleteStudentData: () => void;
 }
 
 const OmniMeshContext = createContext<OmniMeshContextType | undefined>(undefined);
@@ -550,7 +621,365 @@ export const SnackLabProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [activeStudentId, setActiveStudentId] = useState<string>('samir-haddad');
   const student = students.find((s) => s.id === activeStudentId) || students[0];
 
-  const [levels] = useState<CandyLevel[]>(CANDY_LEVELS);
+  const [availableBlueprints, setAvailableBlueprints] = useState<VentureBlueprint[]>(REFERENCE_BLUEPRINTS);
+  const [activeBlueprint, setActiveBlueprint] = useState<VentureBlueprint>(TRAILSPARK_REFERENCE_BLUEPRINT);
+  const [isCoDesignerOpen, setIsCoDesignerOpen] = useState<boolean>(false);
+  const [claimsByLevel, setClaimsByLevel] = useState<Record<number, ClaimArtifact>>({});
+  const [stallCountByLevel, setStallCountByLevel] = useState<Record<number, number>>({});
+  const [recommendTeacherCallByLevel, setRecommendTeacherCallByLevel] = useState<Record<number, boolean>>({});
+  const [lastTurnClassification, setLastTurnClassification] = useState<TurnClassifierResult | null>(null);
+
+  // Phase 2 state
+  const [pausedStudentIds, setPausedStudentIds] = useState<Record<string, boolean>>({});
+  const [studentSignals, setStudentSignals] = useState<
+    Record<string, { misconceptionTag: string | null; confidenceTag: string }>
+  >({
+    'samir-haddad': {
+      misconceptionTag: 'multivariate_variable_confusion',
+      confidenceTag: 'confident_misconception',
+    },
+    'jad-mansour': {
+      misconceptionTag: null,
+      confidenceTag: 'hesitant_accurate',
+    },
+  });
+  const [classJoinCode] = useState<string>('DALEEL9');
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState<boolean>(false);
+  const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState<boolean>(false);
+  const [completedLevels, setCompletedLevels] = useState<number[]>([1, 2]);
+  const [parentNotes, setParentNotes] = useState<
+    Array<{ id: string; studentId: string; text: string; timestamp: string }>
+  >([]);
+  const [vivaSubmissions, setVivaSubmissions] = useState<
+    Record<
+      number,
+      {
+        transcript: string;
+        durationSeconds: number;
+        evaluation: {
+          overallReadiness: string;
+          strengths: string[];
+          followUpQuestion: string;
+          criterionScores: Array<{ criterion: string; level: string; note: string }>;
+        };
+        submittedAt: string;
+      }
+    >
+  >({});
+
+  const syncClassroomMutation = async (action: string, payload: Record<string, unknown>) => {
+    try {
+      await fetch('/api/classroom/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload }),
+      });
+    } catch {
+      // Offline resilient: local state & localStorage remain intact
+    }
+  };
+
+  // Cross-device server polling every 4 seconds (Phone <-> Laptop live sync)
+  useEffect(() => {
+    let active = true;
+    const pullState = async () => {
+      try {
+        const resp = await fetch('/api/classroom/state', { cache: 'no-store' });
+        if (!resp.ok || !active) return;
+        const remote = await resp.json();
+        if (Array.isArray(remote.helpRequests)) {
+          setTeacherHelpRequests(remote.helpRequests);
+        }
+        if (Array.isArray(remote.discussionPosts)) {
+          setClassDiscussionPosts(remote.discussionPosts);
+        }
+        if (remote.pausedStudentIds) {
+          setPausedStudentIds(remote.pausedStudentIds);
+        }
+        if (remote.studentSignals) {
+          setStudentSignals((prev) => ({ ...prev, ...remote.studentSignals }));
+        }
+        if (remote.completedLevelsByStudent?.[activeStudentId]) {
+          setCompletedLevels(remote.completedLevelsByStudent[activeStudentId]);
+        }
+        if (Array.isArray(remote.parentNotes)) {
+          setParentNotes(remote.parentNotes);
+        }
+      } catch {
+        // Ignore transient network errors
+      }
+    };
+    pullState();
+    const timer = setInterval(pullState, 4000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [activeStudentId]);
+
+  // Subscribe to cross-tab / realtime classroom events
+  useEffect(() => {
+    const unsub = subscribeClassroomEvents((event) => {
+      if (event.type === 'HELP_REQUEST') {
+        const req: TeacherHelpRequest = {
+          id: event.payload.id,
+          studentId: event.payload.studentId,
+          studentName: event.payload.studentName,
+          studentRole: 'Student Pod Member',
+          levelTitle: event.payload.levelTitle,
+          message: event.payload.message,
+          timestamp: event.payload.timestamp,
+          status: 'pending',
+        };
+        setTeacherHelpRequests((prev) =>
+          prev.some((p) => p.id === req.id) ? prev : [req, ...prev]
+        );
+        setActiveTeacherNotification(req);
+      } else if (event.type === 'TEACHER_OVERRIDE_PAUSE') {
+        setPausedStudentIds((prev) => ({
+          ...prev,
+          [event.payload.studentId]: event.payload.paused,
+        }));
+      } else if (event.type === 'TEACHER_DIRECT_MESSAGE') {
+        setSocraticMessages((prev) => [
+          ...prev,
+          {
+            id: `tdm-${Date.now()}`,
+            sender: 'assistant',
+            text: `[Teacher Direct Note]: ${event.payload.text}`,
+            timestamp: event.payload.timestamp,
+            isDispatchedHint: true,
+          },
+        ]);
+      } else if (event.type === 'MISCONCEPTION_SIGNAL') {
+        setStudentSignals((prev) => ({
+          ...prev,
+          [event.payload.studentId]: {
+            misconceptionTag: event.payload.misconceptionTag,
+            confidenceTag: event.payload.confidenceTag,
+          },
+        }));
+      }
+    });
+    return unsub;
+  }, []);
+
+  const toggleAiPauseForStudent = (studentId: string) => {
+    setPausedStudentIds((prev) => {
+      const nextPaused = !prev[studentId];
+      broadcastClassroomEvent({
+        type: 'TEACHER_OVERRIDE_PAUSE',
+        payload: { studentId, paused: nextPaused },
+      });
+      return { ...prev, [studentId]: nextPaused };
+    });
+  };
+
+  const sendDirectTeacherMessage = (studentId: string, text: string) => {
+    if (!text.trim()) return;
+    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    broadcastClassroomEvent({
+      type: 'TEACHER_DIRECT_MESSAGE',
+      payload: { studentId, text: text.trim(), timestamp: ts },
+    });
+    if (studentId === activeStudentId) {
+      setSocraticMessages((prev) => [
+        ...prev,
+        {
+          id: `tdm-${Date.now()}`,
+          sender: 'assistant',
+          text: `[Teacher Direct Note]: ${text.trim()}`,
+          timestamp: ts,
+          isDispatchedHint: true,
+        },
+      ]);
+    }
+  };
+
+  const joinClassWithCode = (code: string, studentName: string) => {
+    if (code.trim().toUpperCase() !== classJoinCode) {
+      return { ok: false, error: `Invalid class code. Try "${classJoinCode}".` };
+    }
+    if (!studentName.trim()) {
+      return { ok: false, error: 'Please enter your name to join.' };
+    }
+    const match = students.find(
+      (s) => s.name.toLowerCase() === studentName.trim().toLowerCase()
+    );
+    if (match) {
+      setActiveStudentId(match.id);
+    }
+    setCurrentView('student');
+    setIsJoinModalOpen(false);
+    return { ok: true };
+  };
+
+  const saveVivaSubmission = (
+    levelNumber: number,
+    submission: {
+      transcript: string;
+      durationSeconds: number;
+      evaluation: {
+        overallReadiness: string;
+        strengths: string[];
+        followUpQuestion: string;
+        criterionScores: Array<{ criterion: string; level: string; note: string }>;
+      };
+    }
+  ) => {
+    const fullSub = {
+      ...submission,
+      submittedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setVivaSubmissions((prev) => ({
+      ...prev,
+      [levelNumber]: fullSub,
+    }));
+    syncClassroomMutation('SAVE_VIVA', {
+      studentId: activeStudentId,
+      levelNumber,
+      submission: fullSub,
+    });
+  };
+
+  // Local browser draft cache for intermittent school Wi-Fi resilience
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('daleel_draft_cache_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.claimsByLevel) setClaimsByLevel(parsed.claimsByLevel);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('daleel_draft_cache_v1', JSON.stringify({ claimsByLevel }));
+    } catch {
+      // Ignore storage errors
+    }
+  }, [claimsByLevel]);
+
+  const COLOR_STYLE_MAP: Record<string, { bgGradient: string; badgeBg: string; borderTone: string; shadowTone: string }> = {
+    blue: { bgGradient: 'from-sky-400 to-blue-600', badgeBg: 'bg-sky-500', borderTone: 'border-sky-300', shadowTone: 'shadow-sky-500/30' },
+    green: { bgGradient: 'from-emerald-400 to-green-600', badgeBg: 'bg-emerald-500', borderTone: 'border-emerald-300', shadowTone: 'shadow-emerald-500/30' },
+    purple: { bgGradient: 'from-fuchsia-500 to-purple-600', badgeBg: 'bg-purple-500', borderTone: 'border-purple-300', shadowTone: 'shadow-purple-500/30' },
+    amber: { bgGradient: 'from-orange-400 to-amber-600', badgeBg: 'bg-amber-500', borderTone: 'border-amber-300', shadowTone: 'shadow-amber-500/30' },
+    gold: { bgGradient: 'from-yellow-400 to-amber-500', badgeBg: 'bg-yellow-500', borderTone: 'border-yellow-300', shadowTone: 'shadow-yellow-500/30' },
+    teal: { bgGradient: 'from-teal-400 to-cyan-600', badgeBg: 'bg-teal-500', borderTone: 'border-teal-300', shadowTone: 'shadow-teal-500/30' },
+    ruby: { bgGradient: 'from-rose-500 to-red-600', badgeBg: 'bg-rose-500', borderTone: 'border-rose-300', shadowTone: 'shadow-rose-500/30' },
+  };
+
+  const levels: CandyLevel[] = activeBlueprint.milestones
+    .filter((m) => m.enabled)
+    .map((m, idx) => {
+      const styles = COLOR_STYLE_MAP[m.colorName] || COLOR_STYLE_MAP.blue;
+      const baseRef = CANDY_LEVELS[idx];
+      return {
+        levelNumber: m.levelNumber,
+        title: m.title,
+        subtitle: m.subtitle,
+        colorName: m.colorName,
+        bgGradient: styles.bgGradient,
+        badgeBg: styles.badgeBg,
+        borderTone: styles.borderTone,
+        shadowTone: styles.shadowTone,
+        stars: baseRef ? baseRef.stars : completedLevels.includes(m.levelNumber) ? 3 : 0,
+        status: completedLevels.includes(m.levelNumber) ? 'completed' : 'active',
+        realWorldTask: m.realWorldTask,
+        inAppTool: m.verificationGate,
+        curriculumCode: m.curriculumCode,
+        curriculumTopic: m.curriculumTopic,
+        keyQuestion: m.keyQuestion,
+      };
+    });
+
+  const activateBlueprint = (blueprint: VentureBlueprint) => {
+    setActiveBlueprint(blueprint);
+    setClaimsByLevel({});
+    setStallCountByLevel({});
+    setRecommendTeacherCallByLevel({});
+    const firstLevel = blueprint.milestones.find((m) => m.enabled)?.levelNumber || 1;
+    setSelectedLevelNumber(firstLevel);
+    syncClassroomMutation('ACTIVATE_BLUEPRINT', { blueprint });
+  };
+
+  const addAndActivateBlueprint = (blueprint: VentureBlueprint) => {
+    setAvailableBlueprints((prev) => [blueprint, ...prev.filter((b) => b.id !== blueprint.id)]);
+    activateBlueprint(blueprint);
+  };
+
+  const submitInitialClaim = (levelNumber: number, claimText: string) => {
+    if (!claimText.trim()) return;
+    const claim = {
+      levelNumber,
+      blueprintId: activeBlueprint.id,
+      claimText: claimText.trim(),
+      submittedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setClaimsByLevel((prev) => ({
+      ...prev,
+      [levelNumber]: claim,
+    }));
+    syncClassroomMutation('SUBMIT_CLAIM', { studentId: activeStudentId, claim });
+  };
+
+  const completeLevel = (levelNumber: number) => {
+    setCompletedLevels((prev) => (prev.includes(levelNumber) ? prev : [...prev, levelNumber]));
+    syncClassroomMutation('COMPLETE_LEVEL', { studentId: activeStudentId, levelNumber });
+  };
+
+  const sendParentEncouragement = (text: string) => {
+    if (!text.trim()) return;
+    const note = {
+      id: `pn-${Date.now()}`,
+      studentId: activeStudentId,
+      text: text.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setParentNotes((prev) => [note, ...prev]);
+    syncClassroomMutation('SEND_PARENT_NOTE', { note });
+  };
+
+  const exportStudentDataJson = () => {
+    if (typeof window === 'undefined') return;
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      student,
+      activeBlueprint: activeBlueprint.title,
+      completedLevels,
+      claimsByLevel,
+      vivaSubmissions,
+      lastBatchLog,
+      parentNotes: parentNotes.filter((n) => n.studentId === activeStudentId),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `daleel-data-${student.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const deleteStudentData = () => {
+    setClaimsByLevel({});
+    setCompletedLevels([]);
+    setVivaSubmissions({});
+    setStallCountByLevel({});
+    setRecommendTeacherCallByLevel({});
+    setParentNotes((prev) => prev.filter((n) => n.studentId !== activeStudentId));
+    try {
+      localStorage.removeItem('daleel_draft_cache_v1');
+    } catch {
+      // ignore
+    }
+    syncClassroomMutation('DELETE_STUDENT_DATA', { studentId: activeStudentId });
+  };
+
   const [selectedLevelNumber, setSelectedLevelNumber] = useState<number>(3);
   const [isLevelModalOpen, setIsLevelModalOpen] = useState<boolean>(false);
 
@@ -656,6 +1085,25 @@ export const SnackLabProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     setTeacherHelpRequests((prev) => [newRequest, ...prev]);
     setActiveTeacherNotification(newRequest);
+    syncClassroomMutation('REQUEST_HELP', { request: newRequest });
+
+    broadcastClassroomEvent({
+      type: 'HELP_REQUEST',
+      payload: {
+        id: newRequest.id,
+        studentId: newRequest.studentId,
+        studentName: newRequest.studentName,
+        levelNumber: activeLevelObj.levelNumber,
+        levelTitle: newRequest.levelTitle,
+        message: newRequest.message,
+        timestamp: newRequest.timestamp,
+        priority: customMessage?.includes('SAFEGUARDING')
+          ? 'safeguarding'
+          : customMessage?.includes('3-turn')
+            ? 'stall_3x'
+            : 'normal',
+      },
+    });
 
     // Provide immediate student feedback in chat
     setSocraticMessages((prev) => [
@@ -730,6 +1178,25 @@ export const SnackLabProvider: React.FC<{ children: ReactNode }> = ({ children }
   // SEND MESSAGE (STUDENT SOCRATIC) - INTEGRATED WITH GEMINI 3.8 FLASH & FIELD PROFESSIONALS
   const sendSocraticMessageToGemini = async (userText: string) => {
     if (!userText.trim()) return;
+    if (pausedStudentIds[student.id]) {
+      setSocraticMessages((prev) => [
+        ...prev,
+        {
+          id: `usr-${Date.now()}`,
+          sender: 'user',
+          text: userText,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+        {
+          id: `pause-${Date.now()}`,
+          sender: 'assistant',
+          text: 'Your teacher has paused the AI mentor for your pod to speak with you directly.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isDispatchedHint: true,
+        },
+      ]);
+      return;
+    }
 
     const userMsg: ChatMessage = {
       id: `usr-${Date.now()}`,
@@ -742,7 +1209,9 @@ export const SnackLabProvider: React.FC<{ children: ReactNode }> = ({ children }
     setIsGeminiThinking(true);
 
     const isMultivariate = sweetener !== 'Honey' && tempF !== 325;
-    const activeLevelObj = levels.find((l) => l.levelNumber === selectedLevelNumber) || levels[2];
+    const activeLevelObj = levels.find((l) => l.levelNumber === selectedLevelNumber) || levels[0];
+    const initialClaim = claimsByLevel[selectedLevelNumber]?.claimText || '';
+    const stallCount = stallCountByLevel[selectedLevelNumber] || 0;
 
     try {
       const response = await fetch('/api/gemini', {
@@ -765,6 +1234,9 @@ export const SnackLabProvider: React.FC<{ children: ReactNode }> = ({ children }
             sweetener,
             tempF,
             isMultivariate,
+            initialClaim,
+            stallCount,
+            blueprint: activeBlueprint,
           },
         }),
       });
@@ -775,6 +1247,43 @@ export const SnackLabProvider: React.FC<{ children: ReactNode }> = ({ children }
 
       const data = await response.json();
       const reply = data.text || "Let's explore that step by step!";
+
+      if (data.classification) {
+        setLastTurnClassification(data.classification);
+        setStudentSignals((prev) => ({
+          ...prev,
+          [student.id]: {
+            misconceptionTag: data.classification.misconceptionTag,
+            confidenceTag: data.classification.confidenceTag,
+          },
+        }));
+        broadcastClassroomEvent({
+          type: 'MISCONCEPTION_SIGNAL',
+          payload: {
+            studentId: student.id,
+            studentName: student.name,
+            misconceptionTag: data.classification.misconceptionTag,
+            confidenceTag: data.classification.confidenceTag,
+          },
+        });
+      }
+      if (typeof data.nextStallCount === 'number') {
+        setStallCountByLevel((prev) => ({
+          ...prev,
+          [selectedLevelNumber]: data.nextStallCount,
+        }));
+      }
+      if (data.recommendTeacherCall) {
+        setRecommendTeacherCallByLevel((prev) => ({
+          ...prev,
+          [selectedLevelNumber]: true,
+        }));
+      }
+      if (data.safeguardingAlert) {
+        requestTeacherHelp(
+          `[SAFEGUARDING ALERT] Immediate teacher check-in flagged in ${activeLevelObj.title}.`
+        );
+      }
 
       setSocraticMessages((prev) => [
         ...prev,
@@ -842,7 +1351,7 @@ export const SnackLabProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  // SEND MESSAGE (TEACHER COPILOT) - DR. WISSAM SAMMOURI'S ANALYTICAL PERSPECTIVE
+  // SEND MESSAGE (TEACHER COPILOT) - WIRED TO REASONING ESCALATION TIER
   const sendTeacherCopilotMessageToGemini = async (userText: string) => {
     if (!userText.trim()) return;
 
@@ -856,39 +1365,49 @@ export const SnackLabProvider: React.FC<{ children: ReactNode }> = ({ children }
     setTeacherCopilotMessages((prev) => [...prev, userMsg]);
     setIsTeacherCopilotThinking(true);
 
-    setTimeout(() => {
-      const q = userText.toLowerCase();
-      const targetStudentObj = students.find((s) => s.id === teacherDeepDiveStudent) || student;
-      const isViolation = lastBatchLog?.hasViolation && targetStudentObj.id === 'samir-haddad';
-      let reply = '';
-
-      if (q.includes('wissam') || q.includes('sammouri') || q.includes('data mining') || q.includes('predictive') || q.includes('mesh') || q.includes('hazard')) {
-        reply = `Predictive Analytics Synthesis:\n\n1. Predictive Anomaly Mining: Rather than inspecting retrospective letter grades, our system tracks multivariate error probability. Notice that solitary seated tasks without peer verification result in a 74% spike in trial violations after minute 20.\n\n2. Peer Mesh Dynamics: The peer evaluation architecture demonstrates that when Samir validates his batch metrics through Jad Mansour (Finance) and Nour Saliba (Sensory QA), peer verification velocity increases by 3.4x with 96% attribution certainty.\n\n3. Actionable Pedagogical Prescription: Abolish 40-minute passive lectures. Implement dynamic 2-hour agile incubator sprints where students self-organize across Empirical, Algorithmic, and Creative pods.`;
-      } else if (q.includes('bottleneck') || q.includes('intervention') || q.includes('scaffold') || q.includes('samir')) {
-        reply = `Diagnostic Synthesis for ${targetStudentObj.name} (Grade 9 • ${targetStudentObj.role}):\n\n1. Scientific Inquiry (NGSS MS-PS1-2): ${
-          isViolation
-            ? 'Flagged for multivariate deviation. Samir altered both sweetener and oven temperature simultaneously in Batch 03, indicating a lapse in variable isolation.'
-            : 'Mastered. Single-variable fair test certified (Date paste isolated at 325°F).'
-        }\n\n2. Cognitive Stamina (PE Standard 4): High biometric reserve (88/100) during hands-on kitchen movement, but solitary seated math triggers cognitive depletion after 20 minutes.\n\n3. Predictive Intervention: Pair Samir with Jad Mansour (Unit Economics Lead, 96% algebra mastery) to co-solve linear equations C(x) = Fixed + Variable(x).`;
-      } else if (q.includes('pe') || q.includes('stamina') || q.includes('correlation') || q.includes('0.74')) {
-        reply = `Biometric & Executive Endurance Correlation (r = 0.74, p < 0.001):\n\nLongitudinal telemetry confirms that morning cardiovascular conditioning directly correlates with extended cognitive patience in afternoon empirical trials. Students with high PE stamina indices sustain rigorous variable isolation for 48–56 minutes, whereas sedentary periods induce cognitive fatigue and dual-variable trial errors.`;
-      } else if (q.includes('jad') || q.includes('pair') || q.includes('collaborat') || q.includes('pod')) {
-        reply = `Pod Mesh Synchronization:\n\nPair Samir Haddad (Operations & Lab Scientist) with Jad Mansour (Unit Economics Lead). Samir provides physical ingredient yield data (40g Date Paste), while Jad models the linear cost equation C(x) = $15.00 + 0.72x. This peer-to-peer exchange mirrors École 42 squad learning and eliminates departmental silos.`;
-      } else {
-        reply = `Daleel Pedagogical Analysis:\n\nStudent: ${targetStudentObj.name} (${targetStudentObj.role})\nDepartment: ${targetStudentObj.department}\nCluster: ${targetStudentObj.cluster}\nPeer Reviews Completed: ${targetStudentObj.peerReviewsCompleted}\nCollaborative Velocity: ${targetStudentObj.collaborativeVelocity}%\nRecommendation: Foster cross-pod evaluations and maintain agile mission sprints across Levels 1–7.`;
-      }
-
+    const targetStudentObj = students.find((s) => s.id === teacherDeepDiveStudent) || student;
+    try {
+      const resp = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'teacher_copilot',
+          message: userText,
+          contextData: {
+            blueprintTitle: activeBlueprint.title,
+            targetStudent: targetStudentObj.name,
+            targetRole: targetStudentObj.role,
+            lastBatchViolation: lastBatchLog?.hasViolation,
+            openHelpRequests: teacherHelpRequests.filter((r) => r.status === 'pending').length,
+            latestClassification: lastTurnClassification,
+          },
+        }),
+      });
+      const data = await resp.json();
       setTeacherCopilotMessages((prev) => [
         ...prev,
         {
           id: `t-ai-${Date.now()}`,
           sender: 'assistant',
-          text: reply,
+          text:
+            data.text ||
+            `Classroom Synthesis for ${targetStudentObj.name}: Review Level 3 variable isolation and pair with Jad Mansour.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
+    } catch {
+      setTeacherCopilotMessages((prev) => [
+        ...prev,
+        {
+          id: `t-ai-${Date.now()}`,
+          sender: 'assistant',
+          text: `Classroom Synthesis for ${targetStudentObj.name}: Focus on single-variable isolation in Level 3 before advancing to linear unit costing.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    } finally {
       setIsTeacherCopilotThinking(false);
-    }, 400);
+    }
   };
 
   const logBatch = () => {
@@ -1159,6 +1678,37 @@ export const SnackLabProvider: React.FC<{ children: ReactNode }> = ({ children }
         scatterPoints,
         radarData,
         podNodes: POD_MESH_NODES,
+
+        activeBlueprint,
+        availableBlueprints,
+        activateBlueprint,
+        addAndActivateBlueprint,
+        isCoDesignerOpen,
+        setIsCoDesignerOpen,
+        claimsByLevel,
+        submitInitialClaim,
+        stallCountByLevel,
+        recommendTeacherCallByLevel,
+        lastTurnClassification,
+
+        pausedStudentIds,
+        toggleAiPauseForStudent,
+        sendDirectTeacherMessage,
+        studentSignals,
+        classJoinCode,
+        isJoinModalOpen,
+        setIsJoinModalOpen,
+        joinClassWithCode,
+        isPortfolioModalOpen,
+        setIsPortfolioModalOpen,
+        vivaSubmissions,
+        saveVivaSubmission,
+        completedLevels,
+        completeLevel,
+        parentNotes,
+        sendParentEncouragement,
+        exportStudentDataJson,
+        deleteStudentData,
       }}
     >
       {children}

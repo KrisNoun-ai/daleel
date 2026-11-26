@@ -33,11 +33,25 @@ export const ParentLedgerView: React.FC = () => {
     setIsParentPinModalOpen,
     setAuthenticatedParentStudent,
     setCurrentView,
+    activeBlueprint,
+    completedLevels,
+    claimsByLevel,
+    sendParentEncouragement,
+    exportStudentDataJson,
+    deleteStudentData,
   } = useOmniMesh();
 
   const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState<boolean>(false);
   const [isNoteSent, setIsNoteSent] = useState<boolean>(false);
   const [encouragementText, setEncouragementText] = useState<string>('');
+  const [isGeneratingDigest, setIsGeneratingDigest] = useState<boolean>(false);
+  const [weeklyDigest, setWeeklyDigest] = useState<{
+    headline: string;
+    plainLanguageSummary: string;
+    reasoningExcerpt: string;
+    dinnerPrompts: string[];
+  } | null>(null);
+  const [dataDeletedBanner, setDataDeletedBanner] = useState<boolean>(false);
 
   const hasViolation =
     lastBatchLog?.hasViolation && student.id === 'samir-haddad';
@@ -50,7 +64,33 @@ export const ParentLedgerView: React.FC = () => {
   const handleSendEncouragement = (e: React.FormEvent) => {
     e.preventDefault();
     if (!encouragementText.trim()) return;
+    sendParentEncouragement(encouragementText);
     setIsNoteSent(true);
+  };
+
+  const handleGenerateDigest = async () => {
+    setIsGeneratingDigest(true);
+    try {
+      const resp = await fetch('/api/parent/digest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentName: student.name,
+          blueprintTitle: activeBlueprint.title,
+          completedLevels,
+          claims: Object.values(claimsByLevel),
+          hasBatchViolation: Boolean(lastBatchLog?.hasViolation),
+          sweetener: lastBatchLog?.sweetener || 'Date Paste',
+          tempF: lastBatchLog?.tempF || 325,
+        }),
+      });
+      const data = await resp.json();
+      if (data.digest) {
+        setWeeklyDigest(data.digest);
+      }
+    } finally {
+      setIsGeneratingDigest(false);
+    }
   };
 
   return (
@@ -480,7 +520,88 @@ export const ParentLedgerView: React.FC = () => {
         )}
       </div>
 
-      {/* 7. Faculty Philosophy Note to Guardians */}
+      {/* 7. Automated Weekly Plain-Language Digest & Privacy Controls (FERPA / COPPA / GDPR) */}
+      <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
+          <div>
+            <h3 className="font-serif text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-emerald-700" />
+              <span>Weekly Plain-Language Growth Digest</span>
+            </h3>
+            <p className="text-[11px] text-stone-500 mt-0.5">
+              Generated from {student.name.split(' ')[0]}&apos;s actual milestone work in {activeBlueprint.title}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleGenerateDigest}
+            disabled={isGeneratingDigest}
+            className="px-4 py-2 rounded-2xl bg-[#223528] hover:bg-[#18261D] text-white text-xs font-bold disabled:opacity-50 cursor-pointer shrink-0"
+          >
+            {isGeneratingDigest ? 'Generating Digest...' : 'Generate Weekly Digest'}
+          </button>
+        </div>
+
+        {weeklyDigest && (
+          <div className="p-4 rounded-2xl bg-[#FAFAF9] border border-stone-200 space-y-3 text-xs animate-in fade-in">
+            <strong className="font-serif text-sm text-slate-900 block">
+              {weeklyDigest.headline}
+            </strong>
+            <p className="text-stone-700 leading-relaxed">{weeklyDigest.plainLanguageSummary}</p>
+            <div className="p-3 rounded-xl bg-white border border-stone-200">
+              <span className="text-[10px] font-mono uppercase text-stone-400 block mb-1">
+                Student Reasoning Excerpt
+              </span>
+              <p className="text-slate-800 italic">{weeklyDigest.reasoningExcerpt}</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono uppercase text-emerald-800 font-bold block">
+                Dinner-Table Discussion Prompts
+              </span>
+              <ul className="list-disc pl-5 text-stone-700 space-y-1">
+                {weeklyDigest.dinnerPrompts.map((p, idx) => (
+                  <li key={idx}>{p}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        <div className="pt-3 border-t border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-stone-600">
+            <ShieldCheck className="h-4 w-4 text-emerald-700 shrink-0" />
+            <span className="text-[11px]">
+              <strong>FERPA / COPPA / GDPR Compliant:</strong> Zero AI model training on student data.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={exportStudentDataJson}
+              className="px-3 py-1.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-slate-800 font-semibold text-[11px] cursor-pointer"
+            >
+              Export Data (JSON)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                deleteStudentData();
+                setDataDeletedBanner(true);
+              }}
+              className="px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 font-semibold text-[11px] cursor-pointer"
+            >
+              Delete Student Data
+            </button>
+          </div>
+        </div>
+        {dataDeletedBanner && (
+          <p className="text-[11px] text-rose-700 font-semibold">
+            Student claims, oral defenses, and local drafts have been wiped.
+          </p>
+        )}
+      </div>
+
+      {/* 8. Faculty Philosophy Note to Guardians */}
       <div className="p-5 rounded-2xl bg-white border border-stone-200 text-xs text-stone-500 space-y-2">
         <span className="font-serif font-bold text-slate-900 block text-xs">
           A Note on Daleel&apos;s Qualitative Assessment Philosophy:

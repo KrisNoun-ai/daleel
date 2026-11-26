@@ -22,6 +22,8 @@ export const Navbar: React.FC = () => {
     setIsParentPinModalOpen,
     setIsArchitectureModalOpen,
     setIsClassDiscussionOpen,
+    setIsJoinModalOpen,
+    classJoinCode,
   } = useOmniMesh();
 
   const handleViewChange = (view: AppView) => {
@@ -56,6 +58,15 @@ export const Navbar: React.FC = () => {
           >
             <MessageSquare className="h-3.5 w-3.5 text-emerald-700" />
             <span className="font-sans font-bold text-[10px] sm:text-[11px] hidden xs:inline">Discussion</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsJoinModalOpen(true)}
+            className="hidden sm:flex items-center gap-1 text-[11px] font-mono font-bold text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-300 px-2.5 py-1.5 rounded-full cursor-pointer transition-all"
+            title="Join Class by Code"
+          >
+            <span>Code: {classJoinCode}</span>
           </button>
         </div>
 

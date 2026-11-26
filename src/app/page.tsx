@@ -7,6 +7,7 @@ import { ProjectOverviewModal } from '../components/Navigation/ProjectOverviewMo
 import { ParentPinModal } from '../components/Navigation/ParentPinModal';
 import { TeacherNotificationPopup } from '../components/Navigation/TeacherNotificationPopup';
 import { ClassDiscussionModal } from '../components/Navigation/ClassDiscussionModal';
+import { JoinClassModal } from '../components/Navigation/JoinClassModal';
 import { StudentView } from '../components/Student/StudentView';
 import { TeacherView } from '../components/Teacher/TeacherView';
 import { ParentLedgerView } from '../components/Parent/ParentLedgerView';
@@ -29,8 +30,9 @@ const MainContent: React.FC = () => {
         {currentView === 'parent' && <ParentLedgerView />}
       </main>
 
-      {/* 4. Global Modals: Class Discussion, Parent Gate, Architecture */}
+      {/* 4. Global Modals: Class Discussion, Join Class, Parent Gate, Architecture */}
       <ClassDiscussionModal />
+      <JoinClassModal />
       <ParentPinModal />
       <ProjectOverviewModal />
 

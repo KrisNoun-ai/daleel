@@ -1,188 +1,285 @@
 import { NextResponse } from 'next/server';
+import {
+  buildStaticPromptPrefix,
+  resolveModelForTier,
+  runHeuristicClassifier,
+} from '../../../lib/modelRouter';
+import { TRAILSPARK_REFERENCE_BLUEPRINT } from '../../../data/referenceBlueprints';
+import { TurnClassifierResult, VentureBlueprint } from '../../../types/venture';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const MODEL_NAME = 'gemini-3.5-flash-lite';
+
+async function callGemini(params: {
+  model: string;
+  systemInstruction: string;
+  contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>;
+  temperature?: number;
+  maxOutputTokens?: number;
+  responseMimeType?: string;
+}) {
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${params.model}:generateContent?key=${GEMINI_API_KEY}`;
+  const generationConfig: Record<string, unknown> = {
+    temperature: params.temperature ?? 0.7,
+    maxOutputTokens: params.maxOutputTokens ?? 350,
+  };
+  if (params.responseMimeType) {
+    generationConfig.responseMimeType = params.responseMimeType;
+  }
+
+  let response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: params.systemInstruction }] },
+      contents: params.contents,
+      generationConfig,
+    }),
+  });
+
+  if (response.status === 503) {
+    await new Promise((r) => setTimeout(r, 500));
+    response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: params.systemInstruction }] },
+        contents: params.contents,
+        generationConfig,
+      }),
+    });
+  }
+
+  return response;
+}
 
 export async function POST(req: Request) {
   try {
-    if (!GEMINI_API_KEY) {
-      console.error('Missing GEMINI_API_KEY in environment variables.');
-      return NextResponse.json(
-        { error: 'Server configuration error: GEMINI_API_KEY is not configured.' },
-        { status: 500 }
-      );
-    }
     const body = await req.json();
     const { mode, message, history = [], contextData = {} } = body;
 
-    let systemInstructionText = '';
-
-    if (mode === 'student_socratic') {
-      const persona = contextData.persona || 'socratic';
-
-      if (persona === 'biochemist') {
-        systemInstructionText = `
-You are Dr. Wissam Sammouri, PhD in Biochemistry and Lead Food Science Advisor for the Daleel secondary incubator.
-You are mentoring high school student ${contextData.studentName || 'Student'} (${contextData.grade || 'Grade 9'}, Role: ${contextData.role || 'Scientist'}).
-Active Project: Healthy snack bar kitchen formulation (Level ${contextData.levelNumber || 3}: ${contextData.levelTitle || 'Kitchen Lab'}).
-Bench Parameters: Sweetener: ${contextData.sweetener || 'Date Paste'}, Oven Temp: ${contextData.tempF || 325}°F.
-
-YOUR EXPERTISE & TONE:
-1. Food Chemistry & Biochemistry: Explain polysaccharide pectin chains, fruit fiber moisture hydration, monosaccharides (glucose/fructose in honey) vs complex fruit paste, Maillard caramelization reactions, and water activity (aw < 0.60) for microbial stability.
-2. Scientific Method: If the student changes multiple variables at once (sweetener AND temperature), guide them firmly but warmly on why isolating single variables is essential in biochemistry.
-3. Be rigorous, inspiring, and concise (2-4 punchy sentences or clear bullet points).
-`;
-      } else if (persona === 'economist') {
-        systemInstructionText = `
-You are Rania Khoury, Venture Economics Partner and Chief Financial Advisor for the Daleel secondary incubator.
-You are advising student ${contextData.studentName || 'Student'} (${contextData.grade || 'Grade 9'}, Role: ${contextData.role || 'Scientist'}) on the financial mechanics of their snack bar company.
-Active Project Level: Level ${contextData.levelNumber || 3} (Formulation) transitioning to Level 5 (Linear Cost & Margins).
-Bench Parameters: Sweetener: ${contextData.sweetener || 'Date Paste'}, Oven Temp: ${contextData.tempF || 325}°F.
-
-YOUR EXPERTISE & TONE:
-1. Unit Economics & Algebra: Linear cost modeling C(x) = Fixed Cost + Variable Cost(x), ingredient yield calculations (Date paste bulk pricing $0.018/g vs Raw Honey $0.022/g saving $0.16/bar), target gross margins (70%+), and break-even batch volumes.
-2. Cross-Department Collaboration: Encourage the student to bridge their physical kitchen formulation with Jad Mansour's financial model.
-3. Be sharp, pragmatic, encouraging, and concise (2-4 clear sentences).
-`;
-      } else if (persona === 'food_safety') {
-        systemInstructionText = `
-You are Karim Berbari, Director of Quality Assurance and Food Safety Standards for the Daleel secondary incubator.
-You are advising student ${contextData.studentName || 'Student'} (${contextData.grade || 'Grade 9'}, Role: ${contextData.role || 'Scientist'}).
-Active Project Level: Level ${contextData.levelNumber || 3} (Kitchen Fair Test) & Level 4 (Sensory & Shelf Life QA).
-
-YOUR EXPERTISE & TONE:
-1. Regulatory & Quality Standards: Lebanese Libnor specifications, FDA food labeling, Aw water activity meters (< 0.60 to prevent mold/bacterial growth), and rigorous blindfolded peer sensory tasting matrices.
-2. Fair-Test Verification: Emphasize that quality assurance requires scientifically validated batches—never publish nutritional specs without isolating single variables!
-3. Be precise, safety-focused, constructive, and concise (2-4 sentences).
-`;
-      } else {
-        // default Socratic mentor
-        systemInstructionText = `
-You are the Daleel Socratic AI Mentor for a project-based learning school platform.
-Your student is: ${contextData.studentName || 'Student'} (${contextData.grade || 'Grade 9'}, Role: ${contextData.role || 'Scientist'}).
-Active Level: Level ${contextData.levelNumber || 3}: ${contextData.levelTitle || 'Kitchen Lab'}.
-Current Experiment State:
-- Sweetener: ${contextData.sweetener || 'Honey'}
-- Oven Temperature: ${contextData.tempF || 325}°F
-- Fair Test Status: ${contextData.isMultivariate ? 'VIOLATION: Changed multiple variables at once (sweetener AND temperature)!' : 'VALID: Controlled fair test isolating one variable.'}
-
-GUIDING RULES:
-1. Be encouraging, playful, warm, and Socratic.
-2. Ask probing questions rather than directly giving the answers.
-3. If they changed 2 variables at once, challenge them: "If you change both the sweetener and the oven temperature at the same time, how will you know which one changed the chewy texture?"
-4. Explain real science (binding power of pectin vs glucose, Maillard reaction, water activity aw < 0.60, controlled variables) in simple, relatable terms.
-5. Keep responses concise (2 to 4 sentences or a punchy bullet list) so it stays engaging.
-`;
-      }
-    } else {
-      // teacher_copilot mode
-      systemInstructionText = `
-You are the Daleel AI Pedagogical Copilot assisting the teacher.
-You have real-time access to the student database and learning analytics for Grade 9:
-Database Context:
+    // ------------------------------------------------------------------
+    // MODE: TEACHER COPILOT (Reasoning Escalation Tier)
+    // ------------------------------------------------------------------
+    if (mode === 'teacher_copilot') {
+      const reasoningModel = resolveModelForTier('reasoning');
+      const systemInstruction = `
+You are the Daleel Faculty Classroom Studio Copilot assisting a K-12 teacher.
+You analyze real classroom mastery, misconception clusters, confidence-vs-mastery signals, and cross-pod collaboration.
+Active Classroom Context:
 ${JSON.stringify(contextData, null, 2)}
 
-ROLE & CAPABILITIES:
-1. Provide actionable diagnostic insights connecting Science (NGSS MS-PS1-2), Mathematics (CCSS.MATH.HSA.CED.A.2), and Physiology (PE Standard 4).
-2. Explain correlations (e.g. why Samir's focus stamina dropped after seated math vs. his high stamina in active lab bench work, r=0.74 correlation with cardiovascular reserve).
-3. Recommend concrete scaffolding interventions (e.g., pairing Samir with Leo Santos for linear cost modeling).
-4. Be professional, clear, evidence-based, and concise.
+RULES:
+1. Be practical, evidence-based, and concise (3-5 crisp sentences or bullet points).
+2. Highlight specific misconception clusters and suggest a 5-minute targeted mini-lesson or peer pairing.
+3. Never use opaque technical jargon; speak as an experienced instructional coach.
 `;
-    }
 
-    // Format conversation history for Gemini
-    const contents: any[] = [];
-
-    // Add previous turns if provided
-    if (Array.isArray(history) && history.length > 0) {
-      for (const item of history) {
-        if (item.text) {
-          contents.push({
-            role: item.role === 'model' || item.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: item.text }],
+      if (GEMINI_API_KEY) {
+        try {
+          const resp = await callGemini({
+            model: reasoningModel,
+            systemInstruction,
+            contents: [{ role: 'user', parts: [{ text: message }] }],
+            temperature: 0.5,
+            maxOutputTokens: 400,
           });
+          if (resp.ok) {
+            const data = await resp.json();
+            const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (replyText) {
+              return NextResponse.json({ text: replyText, model: reasoningModel, tier: 'reasoning' });
+            }
+          }
+        } catch (err) {
+          console.warn('Teacher Copilot Gemini call failed, using fallback:', err);
         }
-      }
-    }
-
-    // Add current user message
-    contents.push({
-      role: 'user',
-      parts: [{ text: message }],
-    });
-
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${GEMINI_API_KEY}`;
-
-    const payload = {
-      system_instruction: {
-        parts: [{ text: systemInstructionText }],
-      },
-      contents: contents,
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 350,
-      },
-    };
-
-    let response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    // Auto-retry once on temporary 503 spike
-    if (response.status === 503) {
-      await new Promise((r) => setTimeout(r, 600));
-      response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    }
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.warn('Gemini API returned non-OK, using intelligent domain fallback:', response.status, errText);
-
-      // Intelligent fallback matching the active mentor persona and student context
-      const persona = contextData.persona || 'socratic';
-      const studentName = (contextData.studentName || 'Samir').split(' ')[0];
-      const sweetener = contextData.sweetener || 'Date Paste';
-      const tempF = contextData.tempF || 325;
-      const isMultivariate = contextData.isMultivariate;
-
-      let fallbackText = '';
-      if (persona === 'biochemist') {
-        fallbackText = `In biochemistry, Date Paste is rich in pectin polysaccharides and insoluble dietary fiber that form a hydrophilic gel matrix trapping free water molecules. This lowers the free water activity (aw < 0.60), protecting against mold while giving your bar its characteristic chewiness. In contrast, wild honey is composed primarily of monosaccharides (glucose & fructose) which attract moisture without providing structural fiber binding.`;
-      } else if (persona === 'economist') {
-        fallbackText = `From a venture economics standpoint, Lebanese bulk date paste is priced at $0.018/g wholesale compared to raw honey at $0.022/g. Swapping 40g reduces raw cost by $0.16 per bar, which widens your gross profit margin to 71.2% at a $2.50 retail price. To verify your linear cost equation C(x) = Fixed + Variable(x), connect with Jad Mansour!`;
-      } else if (persona === 'food_safety') {
-        fallbackText = `Quality and safety compliance requires keeping oven heat at 325°F to ensure internal pasteurization while preserving delicate bioactive fibers. Under Lebanese Libnor and FDA standards, keeping water activity aw < 0.60 prevents microbiological microbial growth without requiring artificial chemical preservatives.`;
-      } else {
-        fallbackText = isMultivariate
-          ? `Put on your lab goggles, ${studentName}! In Grade 9 Physical Science (NGSS MS-PS1-2), a valid experiment requires isolating ONE independent variable. You changed both the Sweetener (${sweetener}) and shifted the oven to ${tempF}°F simultaneously. How will you prove which one changed the chewy texture? Try returning the oven to 325°F!`
-          : `Great scientific inquiry, ${studentName}! By locking your oven at 325°F, you maintain experimental control over thermal moisture evaporation. What are your peer tasters predicting about chewiness?`;
       }
 
       return NextResponse.json({
-        text: fallbackText,
-        model: MODEL_NAME,
+        text: `Classroom Synthesis: Focus first on pods showing variable-isolation drift in Level 3. Pair students with confident misconceptions alongside peers who logged controlled single-variable trials, and run a 5-minute mini-lesson on holding oven temperature constant.`,
+        model: reasoningModel,
+        tier: 'reasoning',
         status: 'fallback_active',
       });
     }
 
-    const data = await response.json();
-    const candidate = data.candidates?.[0];
-    const textPart = candidate?.content?.parts?.find(
-      (p: any) => typeof p.text === 'string' && p.text.trim().length > 0
-    );
-    const replyText =
-      textPart?.text ||
-      'Welcome to your Socratic lab session! What happens if you isolate one variable at a time?';
+    // ------------------------------------------------------------------
+    // MODE: STUDENT SOCRATIC / SPECIALIST (Two-Stage Guarded Pipeline)
+    // ------------------------------------------------------------------
+    const fastModel = resolveModelForTier('fast');
+    const isMultivariate = Boolean(contextData.isMultivariate);
+    const currentStallCount = Number(contextData.stallCount || 0);
+    const blueprint: VentureBlueprint = contextData.blueprint || TRAILSPARK_REFERENCE_BLUEPRINT;
+    const activeLevelNum = Number(contextData.levelNumber || 3);
+    const milestone =
+      blueprint.milestones.find((m) => m.levelNumber === activeLevelNum) ||
+      blueprint.milestones[0];
+
+    const personaMode: 'socratic' | 'specialist' =
+      contextData.persona && contextData.persona !== 'socratic' ? 'specialist' : 'socratic';
+
+    // STAGE 1: State, Misconception & Safeguarding Classifier
+    let classification: TurnClassifierResult = runHeuristicClassifier({
+      message,
+      isMultivariate,
+    });
+
+    if (GEMINI_API_KEY && !classification.safeguardingFlag.triggered) {
+      try {
+        const classifierPrompt = `
+You are Daleel's Stage-1 Pedagogical State & Safeguarding Classifier.
+Analyze the student's message in the context of Level ${milestone.levelNumber} (${milestone.title}: ${milestone.curriculumTopic}).
+Current experiment multivariate violation: ${isMultivariate}.
+Student's unassisted initial claim: "${contextData.initialClaim || 'None submitted'}".
+
+Return ONLY valid JSON matching this exact shape:
+{
+  "answerExtractionAttempt": boolean,
+  "misconceptionTag": string | null,
+  "reasoningQuality": "low" | "developing" | "strong",
+  "stallIncrement": boolean,
+  "confidenceTag": "hesitant_accurate" | "confident_misconception" | "calibrated" | "neutral",
+  "safeguardingFlag": { "triggered": boolean, "severity": "none" | "alert", "reason": string }
+}`;
+        const cResp = await callGemini({
+          model: fastModel,
+          systemInstruction: classifierPrompt,
+          contents: [{ role: 'user', parts: [{ text: message }] }],
+          temperature: 0.1,
+          maxOutputTokens: 180,
+          responseMimeType: 'application/json',
+        });
+
+        if (cResp.ok) {
+          const cData = await cResp.json();
+          const rawJson = cData.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawJson) {
+            const parsed = JSON.parse(rawJson);
+            classification = {
+              ...classification,
+              ...parsed,
+              safeguardingFlag: parsed.safeguardingFlag || classification.safeguardingFlag,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Stage-1 classifier fell back to heuristic:', err);
+      }
+    }
+
+    // Immediate Safeguarding Escalation
+    if (classification.safeguardingFlag?.triggered) {
+      return NextResponse.json({
+        text: "I'm pausing our lab session right here because your safety comes first. I've alerted your teacher so a trusted adult can check in with you right away.",
+        model: fastModel,
+        tier: 'fast',
+        classification,
+        nextStallCount: currentStallCount,
+        recommendTeacherCall: true,
+        safeguardingAlert: true,
+      });
+    }
+
+    const nextStallCount = classification.stallIncrement ? currentStallCount + 1 : 0;
+    const recommendTeacherCall = nextStallCount >= 3;
+
+    // STAGE 2: Guarded Socratic / Specialist Mentor Response (using Static Prefix + Dynamic Turn Context)
+    const staticPrefix = buildStaticPromptPrefix({
+      blueprint,
+      milestone,
+      personaMode,
+    });
+
+    const dynamicTurnInstruction = `
+${staticPrefix}
+
+[DYNAMIC TURN CONTEXT]
+Student: ${contextData.studentName || 'Student'} (${contextData.grade || 'Grade 9'})
+Student's Unassisted Initial Claim: "${contextData.initialClaim || 'Not provided'}"
+Bench Parameters: Sweetener=${contextData.sweetener || 'Date Paste'}, Temp=${contextData.tempF || 325}°F, MultivariateViolation=${isMultivariate}
+Stage-1 Classifier Output:
+- Answer Extraction Attempt: ${classification.answerExtractionAttempt}
+- Misconception Tag: ${classification.misconceptionTag || 'none'}
+- Reasoning Quality: ${classification.reasoningQuality}
+- Consecutive Stall Count: ${nextStallCount}
+
+RESPONSE INSTRUCTIONS:
+1. If Answer Extraction Attempt is true: warmly refuse to hand over the answer and ask one narrower diagnostic question referencing their own Initial Claim.
+2. If Misconception Tag is present: challenge the specific flaw without lecturing (2–4 concise sentences).
+3. If Consecutive Stall Count >= 3: acknowledge they've worked hard on a tricky concept and encourage them to click "Call Teacher to Pod" right below so their teacher can join them.
+`;
+
+    if (GEMINI_API_KEY) {
+      try {
+        const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+        if (Array.isArray(history)) {
+          for (const item of history.slice(-6)) {
+            if (item.text) {
+              contents.push({
+                role: item.role === 'model' || item.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: item.text }],
+              });
+            }
+          }
+        }
+        contents.push({ role: 'user', parts: [{ text: message }] });
+
+        const resp = await callGemini({
+          model: fastModel,
+          systemInstruction: dynamicTurnInstruction,
+          contents,
+          temperature: 0.65,
+          maxOutputTokens: 320,
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (replyText) {
+            return NextResponse.json({
+              text: replyText,
+              model: fastModel,
+              tier: 'fast',
+              classification,
+              nextStallCount,
+              recommendTeacherCall,
+              safeguardingAlert: false,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Stage-2 mentor fell back to domain logic:', err);
+      }
+    }
+
+    // Domain-tailored fallback when offline or key unset
+    const firstName = (contextData.studentName || 'Student').split(' ')[0];
+    let fallbackText = '';
+    if (classification.answerExtractionAttempt) {
+      fallbackText = `I won't give away the final answer, ${firstName}, because your own reasoning is what matters here. Look back at your initial claim—what is the ONE thing you predicted would change, and what evidence would prove it?`;
+    } else if (personaMode === 'specialist') {
+      fallbackText = isMultivariate
+        ? `[${blueprint.specialistPersona.name}]: In controlled research, altering two variables at once makes it impossible to isolate cause and effect. Before we interpret texture or results, how could you lock one constant so your test is valid?`
+        : `[${blueprint.specialistPersona.name}]: Good variable discipline, ${firstName}. Based on your initial claim, what measurable evidence will you record next to test against the rubric?`;
+    } else {
+      fallbackText = isMultivariate
+        ? `Good question, ${firstName}! Right now your bench has two variables changed at once (${contextData.sweetener} and ${contextData.tempF}°F). How will you prove which one caused the difference unless you hold one constant?`
+        : `Great inquiry, ${firstName}! Looking at your initial claim for ${milestone.title}, what single piece of evidence from your next trial would confirm or challenge your prediction?`;
+    }
+
+    if (recommendTeacherCall) {
+      fallbackText += ` (You've hit 3 tricky turns in a row—feel free to tap "Call Teacher to Pod" so your teacher can jump in!)`;
+    }
 
     return NextResponse.json({
-      text: replyText,
-      model: MODEL_NAME,
+      text: fallbackText,
+      model: fastModel,
+      tier: 'fast',
+      classification,
+      nextStallCount,
+      recommendTeacherCall,
+      safeguardingAlert: false,
+      status: 'fallback_active',
     });
   } catch (error: any) {
     console.error('Gemini Route Catch Error:', error);
