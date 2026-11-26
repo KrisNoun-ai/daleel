@@ -90,26 +90,28 @@ export const CandyCrushMap: React.FC<CandyCrushMapProps> = ({ onSelectLevel }) =
 
       {/* The Winding Peppermint Trail & Candy Nodes */}
       <div className="relative flex flex-col items-center gap-14 sm:gap-16 py-6 max-w-lg mx-auto">
-        {/* Curving Striped Road SVG */}
+        {/* Curving Striped Road SVG spanning full height through all 7 levels */}
         <svg
+          viewBox="0 0 400 1000"
+          preserveAspectRatio="none"
           className="absolute inset-0 w-full h-full pointer-events-none"
           style={{ filter: 'drop-shadow(0 6px 10px rgba(0,0,0,0.06))' }}
         >
           {/* Broad white base ribbon */}
           <path
-            d="M 240 20 Q 340 100 360 200 T 260 360 T 170 520 T 320 680"
+            d="M 200 40 C 310 130, 340 220, 270 320 C 200 420, 120 500, 140 620 C 160 740, 260 820, 240 960"
             fill="none"
             stroke="#FFFFFF"
-            strokeWidth="32"
+            strokeWidth="26"
             strokeLinecap="round"
           />
           {/* Candy cane green stripe ribbon */}
           <path
-            d="M 240 20 Q 340 100 360 200 T 260 360 T 170 520 T 320 680"
+            d="M 200 40 C 310 130, 340 220, 270 320 C 200 420, 120 500, 140 620 C 160 740, 260 820, 240 960"
             fill="none"
             stroke="#86EFAC"
-            strokeWidth="16"
-            strokeDasharray="20 16"
+            strokeWidth="12"
+            strokeDasharray="18 14"
             strokeLinecap="round"
           />
         </svg>

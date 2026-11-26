@@ -456,13 +456,16 @@ export const TeacherView: React.FC = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={MILESTONE_PROGRESS_DATA}
-                    margin={{ top: 10, right: 15, bottom: 20, left: -10 }}
+                    margin={{ top: 10, right: 15, bottom: 30, left: -10 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                     <XAxis
                       dataKey="milestone"
                       tick={{ fill: '#64748B', fontSize: 10 }}
                       interval={0}
+                      angle={-20}
+                      textAnchor="end"
+                      height={48}
                     />
                     <YAxis
                       domain={[0, 30]}
@@ -490,6 +493,7 @@ export const TeacherView: React.FC = () => {
                       name="Students at Level"
                       fill="#223528"
                       radius={[4, 4, 0, 0]}
+                      isAnimationActive={false}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -561,12 +565,14 @@ export const TeacherView: React.FC = () => {
                       name="Cohort Mastery %"
                       fill="#059669"
                       radius={[4, 4, 0, 0]}
+                      isAnimationActive={false}
                     />
                     <Bar
                       dataKey="target"
                       name="Proficiency Target %"
                       fill="#CBD5E1"
                       radius={[4, 4, 0, 0]}
+                      isAnimationActive={false}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -638,6 +644,7 @@ export const TeacherView: React.FC = () => {
                       stackId="1"
                       stroke="#059669"
                       fill="#D1FAE5"
+                      isAnimationActive={false}
                     />
                     <Area
                       type="monotone"
@@ -646,6 +653,7 @@ export const TeacherView: React.FC = () => {
                       stackId="1"
                       stroke="#2563EB"
                       fill="#DBEAFE"
+                      isAnimationActive={false}
                     />
                     <Area
                       type="monotone"
@@ -654,6 +662,7 @@ export const TeacherView: React.FC = () => {
                       stackId="1"
                       stroke="#78716C"
                       fill="#F5F5F4"
+                      isAnimationActive={false}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -724,12 +733,14 @@ export const TeacherView: React.FC = () => {
                       name="Controlled Single-Variable Tests"
                       fill="#059669"
                       radius={[4, 4, 0, 0]}
+                      isAnimationActive={false}
                     />
                     <Bar
                       dataKey="flaggedDualVariables"
                       name="Changed Multiple Variables"
                       fill="#F59E0B"
                       radius={[4, 4, 0, 0]}
+                      isAnimationActive={false}
                     />
                   </BarChart>
                 </ResponsiveContainer>
