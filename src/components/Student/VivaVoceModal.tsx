@@ -1,15 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useOmniMesh } from '../../context/SnackLabContext';
-import {
-  Mic,
-  Square,
-  X,
-  Sparkles,
-  CheckCircle2,
-  Volume2,
-} from 'lucide-react';
+import { useDaleel } from '../../context/DaleelContext';
+import { Mic, Square, X, Sparkles, CheckCircle2, Volume2 } from 'lucide-react';
 
 interface VivaVoceModalProps {
   isOpen: boolean;
@@ -23,12 +16,12 @@ export const VivaVoceModal: React.FC<VivaVoceModalProps> = ({
   levelNumber,
 }) => {
   const {
-    student,
+    activeStudent,
     activeBlueprint,
-    claimsByLevel,
-    vivaSubmissions,
+    claimsByStudent,
+    vivaByStudent,
     saveVivaSubmission,
-  } = useOmniMesh();
+  } = useDaleel();
 
   const [isRecording, setIsRecording] = useState(false);
   const [secondsElapsed, setSecondsElapsed] = useState(0);
@@ -42,7 +35,7 @@ export const VivaVoceModal: React.FC<VivaVoceModalProps> = ({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<any>(null);
 
-  const existing = vivaSubmissions[levelNumber];
+  const existing = vivaByStudent[activeStudent.id]?.[levelNumber];
 
   useEffect(() => {
     return () => {
@@ -87,7 +80,6 @@ export const VivaVoceModal: React.FC<VivaVoceModalProps> = ({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
-
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
@@ -96,11 +88,9 @@ export const VivaVoceModal: React.FC<VivaVoceModalProps> = ({
         setAudioUrl(URL.createObjectURL(blob));
         stream.getTracks().forEach((t) => t.stop());
       };
-
       recorder.start();
       setIsRecording(true);
 
-      // Optional live browser speech-to-text transcription
       const SpeechRecognition =
         (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
@@ -130,7 +120,7 @@ export const VivaVoceModal: React.FC<VivaVoceModalProps> = ({
       }, 1000);
     } catch {
       setErrorMsg(
-        'Microphone access unavailable in this browser. You can still type or dictate your 2-minute oral defense transcript below.'
+        'Microphone unavailable. Type or paste your oral defense explanation below.'
       );
     }
   };
@@ -150,15 +140,13 @@ export const VivaVoceModal: React.FC<VivaVoceModalProps> = ({
           transcript,
           durationSeconds: secondsElapsed || 30,
           levelNumber,
-          studentName: student.name,
-          initialClaim: claimsByLevel[levelNumber]?.claimText || '',
+          studentName: activeStudent.name,
+          initialClaim: claimsByStudent[activeStudent.id]?.[levelNumber]?.claimText || '',
           blueprint: activeBlueprint,
         }),
       });
       const data = await resp.json();
-      if (!resp.ok || !data.evaluation) {
-        throw new Error(data.error || 'Evaluation failed');
-      }
+      if (!resp.ok || !data.evaluation) throw new Error(data.error || 'Evaluation failed');
       saveVivaSubmission(levelNumber, {
         transcript,
         durationSeconds: secondsElapsed || 30,
@@ -171,14 +159,11 @@ export const VivaVoceModal: React.FC<VivaVoceModalProps> = ({
     }
   };
 
-  const formatTime = (s: number) => {
-    const mins = Math.floor(s / 60);
-    const secs = s % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
+  const formatTime = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs">
       <div className="w-full max-w-2xl max-h-[90vh] flex flex-col bg-white rounded-3xl border border-stone-200 shadow-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-stone-200 bg-[#FAF9F5] flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -190,28 +175,23 @@ export const VivaVoceModal: React.FC<VivaVoceModalProps> = ({
                 Oral Defense (Viva Voce) — Level {levelNumber}
               </h3>
               <p className="text-xs text-stone-500">
-                2–3 minute audio explanation evaluated against your venture rubric
+                2–3 minute spoken defense scored against your venture rubric
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 cursor-pointer"
-          >
+          <button type="button" onClick={onClose} className="p-2 rounded-xl text-stone-400 hover:bg-stone-200/60 cursor-pointer">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs bg-[#FBFBF9]">
-          {/* Recorder Controls */}
           <div className="bg-white rounded-2xl border border-stone-200 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               {!isRecording ? (
                 <button
                   type="button"
                   onClick={startRecording}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-xs cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer"
                 >
                   <Mic className="h-4 w-4" />
                   <span>Start 2–3 Min Recording</span>
@@ -220,7 +200,7 @@ export const VivaVoceModal: React.FC<VivaVoceModalProps> = ({
                 <button
                   type="button"
                   onClick={stopRecording}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xs animate-pulse cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900 text-white font-bold animate-pulse cursor-pointer"
                 >
                   <Square className="h-4 w-4" />
                   <span>Stop Recording</span>
@@ -230,7 +210,6 @@ export const VivaVoceModal: React.FC<VivaVoceModalProps> = ({
                 {formatTime(secondsElapsed)} / 03:00
               </span>
             </div>
-
             {audioUrl && (
               <div className="flex items-center gap-2">
                 <Volume2 className="h-4 w-4 text-emerald-700" />
@@ -240,77 +219,47 @@ export const VivaVoceModal: React.FC<VivaVoceModalProps> = ({
           </div>
 
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
-              {errorMsg}
-            </div>
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">{errorMsg}</div>
           )}
 
-          {/* Transcript Box */}
           <div className="space-y-1.5">
-            <label className="font-bold text-slate-800 block">
-              Spoken Transcript (Auto-transcribed or editable)
-            </label>
+            <label className="font-bold text-slate-800 block">Spoken Transcript</label>
             <textarea
               rows={4}
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
-              placeholder="Explain your variable isolation, evidence, and cost/impact reasoning in your own words..."
-              className="w-full rounded-2xl border border-stone-300 bg-white p-3.5 text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#223528]/20"
+              placeholder="Explain your reasoning, evidence, and trade-offs in your own words..."
+              className="w-full rounded-2xl border border-stone-300 bg-white p-3.5 text-xs sm:text-sm text-slate-900"
             />
             <div className="flex justify-end pt-1">
               <button
                 type="button"
                 onClick={handleEvaluate}
                 disabled={isEvaluating || !transcript.trim()}
-                className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#223528] hover:bg-[#19271e] text-white font-bold disabled:opacity-40 cursor-pointer"
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[#223528] text-white font-bold disabled:opacity-40 cursor-pointer"
               >
                 <Sparkles className="h-4 w-4 text-amber-300" />
-                <span>{isEvaluating ? 'Evaluating Against Rubric...' : 'Evaluate Oral Defense'}</span>
+                <span>{isEvaluating ? 'Evaluating...' : 'Evaluate Oral Defense'}</span>
               </button>
             </div>
           </div>
 
-          {/* Rubric Evaluation Result */}
           {existing && (
-            <div className="bg-white rounded-2xl border-2 border-emerald-500/40 p-5 space-y-3 animate-in fade-in">
+            <div className="bg-white rounded-2xl border-2 border-emerald-500/40 p-5 space-y-3">
               <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
                 <div className="flex items-center gap-2 font-serif font-bold text-sm text-slate-900">
                   <CheckCircle2 className="h-4 w-4 text-emerald-700" />
-                  <span>Rubric Readiness: {existing.evaluation.overallReadiness}</span>
+                  <span>Readiness: {existing.evaluation.overallReadiness}</span>
                 </div>
-                <span className="text-[10px] font-mono text-stone-400">
-                  Saved at {existing.submittedAt}
-                </span>
+                <span className="text-[10px] font-mono text-stone-400">{existing.submittedAt}</span>
               </div>
-
-              <div className="space-y-1">
-                <strong className="text-slate-800 block">Strengths Observed:</strong>
-                <ul className="list-disc pl-5 text-stone-700 space-y-0.5">
-                  {existing.evaluation.strengths.map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950">
-                <strong>Defense Follow-Up Question:</strong> {existing.evaluation.followUpQuestion}
-              </div>
-
-              <div className="space-y-1.5">
-                {existing.evaluation.criterionScores.map((cs, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-start justify-between gap-3 p-2.5 rounded-xl bg-stone-50 border border-stone-200"
-                  >
-                    <div>
-                      <span className="font-bold text-slate-900 block">{cs.criterion}</span>
-                      <span className="text-stone-600">{cs.note}</span>
-                    </div>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
-                      {cs.level}
-                    </span>
-                  </div>
+              <ul className="list-disc pl-5 text-stone-700 space-y-0.5">
+                {existing.evaluation.strengths.map((s, i) => (
+                  <li key={i}>{s}</li>
                 ))}
+              </ul>
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950">
+                <strong>Follow-Up Question:</strong> {existing.evaluation.followUpQuestion}
               </div>
             </div>
           )}

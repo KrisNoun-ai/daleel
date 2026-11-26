@@ -4,8 +4,7 @@ import { readClassroomStore, writeClassroomStore } from '../../../../lib/classro
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const state = readClassroomStore();
-  return NextResponse.json(state);
+  return NextResponse.json(readClassroomStore());
 }
 
 export async function POST(req: Request) {
@@ -15,6 +14,27 @@ export async function POST(req: Request) {
     const state = readClassroomStore();
 
     switch (action) {
+      case 'JOIN_CLASS': {
+        const { name, grade = 'Grade 8', podName = 'Pod A' } = payload;
+        const cleanName = String(name || '').trim();
+        if (!cleanName) break;
+        const existing = state.students.find(
+          (s) => s.name.toLowerCase() === cleanName.toLowerCase()
+        );
+        if (!existing) {
+          state.students = [
+            ...state.students,
+            {
+              id: `stu-${Date.now()}`,
+              name: cleanName,
+              grade,
+              podName,
+              joinedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            },
+          ];
+        }
+        break;
+      }
       case 'ACTIVATE_BLUEPRINT': {
         state.activeBlueprint = payload.blueprint;
         break;
@@ -33,11 +53,6 @@ export async function POST(req: Request) {
         if (!existing.includes(levelNumber)) {
           state.completedLevelsByStudent[studentId] = [...existing, levelNumber];
         }
-        break;
-      }
-      case 'LOG_BATCH': {
-        const { studentId, record } = payload;
-        state.batchLogsByStudent[studentId] = record;
         break;
       }
       case 'REQUEST_HELP': {
@@ -99,7 +114,6 @@ export async function POST(req: Request) {
         delete state.pausedStudentIds[studentId];
         delete state.directMessagesByStudent[studentId];
         delete state.studentSignals[studentId];
-        delete state.batchLogsByStudent[studentId];
         state.helpRequests = state.helpRequests.filter((r) => r.studentId !== studentId);
         state.parentNotes = state.parentNotes.filter((n) => n.studentId !== studentId);
         break;
@@ -108,8 +122,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
 
-    const updated = writeClassroomStore(state);
-    return NextResponse.json(updated);
+    return NextResponse.json(writeClassroomStore(state));
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Classroom state update failed' },

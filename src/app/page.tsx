@@ -1,57 +1,43 @@
 'use client';
 
 import React from 'react';
-import { OmniMeshProvider, useOmniMesh } from '../context/SnackLabContext';
+import { DaleelProvider, useDaleel } from '../context/DaleelContext';
 import { Navbar } from '../components/Navigation/Navbar';
-import { ProjectOverviewModal } from '../components/Navigation/ProjectOverviewModal';
-import { ParentPinModal } from '../components/Navigation/ParentPinModal';
 import { TeacherNotificationPopup } from '../components/Navigation/TeacherNotificationPopup';
 import { ClassDiscussionModal } from '../components/Navigation/ClassDiscussionModal';
 import { JoinClassModal } from '../components/Navigation/JoinClassModal';
-import { StudentView } from '../components/Student/StudentView';
-import { TeacherView } from '../components/Teacher/TeacherView';
-import { ParentLedgerView } from '../components/Parent/ParentLedgerView';
+import { StudentWorkspace } from '../components/Student/StudentWorkspace';
+import { TeacherStudio } from '../components/Teacher/TeacherStudio';
+import { ParentLedger } from '../components/Parent/ParentLedger';
 
 const MainContent: React.FC = () => {
-  const { currentView } = useOmniMesh();
+  const { role } = useDaleel();
 
   return (
     <div className="min-h-screen bg-[#F9F8F5] flex flex-col font-sans text-[#18221B]">
-      {/* 1. Hikaya-Inspired Global Navigation */}
       <Navbar />
-
-      {/* 2. Real-Time Teacher Alert Popup */}
       <TeacherNotificationPopup />
 
-      {/* 3. Main Page Surface */}
-      <main className="flex-1 mx-auto w-full max-w-6xl px-3 sm:px-6 py-4 sm:py-8 overflow-x-hidden">
-        {currentView === 'student' && <StudentView />}
-        {currentView === 'teacher' && <TeacherView />}
-        {currentView === 'parent' && <ParentLedgerView />}
+      <main className="flex-1 mx-auto w-full max-w-6xl px-3 sm:px-6 py-6 sm:py-8">
+        {role === 'student' && <StudentWorkspace />}
+        {role === 'teacher' && <TeacherStudio />}
+        {role === 'parent' && <ParentLedger />}
       </main>
 
-      {/* 4. Global Modals: Class Discussion, Join Class, Parent Gate, Architecture */}
       <ClassDiscussionModal />
       <JoinClassModal />
-      <ParentPinModal />
-      <ProjectOverviewModal />
 
-      {/* 4. Hikaya-Inspired Artisanal Footer */}
-      <footer className="border-t border-[#E8E6DF] bg-white/70 py-8 mt-20">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-500">
-          <div className="flex items-center gap-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#223528] text-amber-300 font-serif font-bold text-xs shadow-2xs">
+      <footer className="border-t border-[#E8E6DF] bg-white/70 py-6 mt-12">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-stone-500">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#223528] text-amber-300 font-serif font-bold text-[11px]">
               د
             </div>
-            <div>
-              <span className="font-serif font-bold text-slate-900 text-sm">Daleel</span>
-              <span className="text-stone-400 mx-2">•</span>
-              <span className="text-stone-600 font-medium">Secondary Project-Based Learning Platform</span>
-            </div>
+            <span className="font-serif font-bold text-slate-900">Daleel</span>
+            <span className="text-stone-400">•</span>
+            <span>Project-Based Learning Engine</span>
           </div>
-          <div className="text-stone-400 text-center sm:text-right font-mono text-[11px]">
-            Grade 9 Multidisciplinary Incubator • Beirut, Lebanon
-          </div>
+          <span className="font-mono text-[11px] text-stone-400">Grades 3–12</span>
         </div>
       </footer>
     </div>
@@ -60,8 +46,8 @@ const MainContent: React.FC = () => {
 
 export default function Home() {
   return (
-    <OmniMeshProvider>
+    <DaleelProvider>
       <MainContent />
-    </OmniMeshProvider>
+    </DaleelProvider>
   );
 }

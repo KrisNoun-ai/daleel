@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useOmniMesh } from '../../context/SnackLabContext';
+import { useDaleel } from '../../context/DaleelContext';
 import { GradeBand, VentureBlueprint } from '../../types/venture';
 import { detectUnsupportedMediaWarnings } from '../../lib/modelRouter';
 import {
@@ -23,7 +23,7 @@ export const VentureCoDesignerModal: React.FC = () => {
     availableBlueprints,
     activateBlueprint,
     addAndActivateBlueprint,
-  } = useOmniMesh();
+  } = useDaleel();
 
   const [mode, setMode] = useState<'architect' | 'remix'>('architect');
   const [gradeBand, setGradeBand] = useState<GradeBand>('9-12');

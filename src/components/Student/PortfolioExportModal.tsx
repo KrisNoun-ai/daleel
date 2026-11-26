@@ -1,26 +1,26 @@
 'use client';
 
 import React from 'react';
-import { useOmniMesh } from '../../context/SnackLabContext';
+import { useDaleel } from '../../context/DaleelContext';
 import { X, Printer, Award, CheckCircle2 } from 'lucide-react';
 
 export const PortfolioExportModal: React.FC = () => {
   const {
-    isPortfolioModalOpen,
-    setIsPortfolioModalOpen,
-    student,
+    isPortfolioOpen,
+    setIsPortfolioOpen,
+    activeStudent,
     activeBlueprint,
-    claimsByLevel,
-    vivaSubmissions,
-  } = useOmniMesh();
+    claimsByStudent,
+    vivaByStudent,
+  } = useDaleel();
 
-  if (!isPortfolioModalOpen) return null;
+  if (!isPortfolioOpen) return null;
 
-  const claimEntries = Object.values(claimsByLevel);
-  const vivaEntries = Object.entries(vivaSubmissions);
+  const claims = Object.values(claimsByStudent[activeStudent.id] || {});
+  const vivas = Object.entries(vivaByStudent[activeStudent.id] || {});
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs">
       <div className="w-full max-w-3xl max-h-[90vh] flex flex-col bg-white rounded-3xl border border-stone-200 shadow-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-stone-200 bg-[#FAF9F5] flex items-center justify-between print:hidden">
           <div className="flex items-center gap-3">
@@ -28,27 +28,23 @@ export const PortfolioExportModal: React.FC = () => {
               <Award className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-serif text-lg font-bold text-slate-900">
-                Portable Venture Portfolio
-              </h3>
-              <p className="text-xs text-stone-500">
-                Exportable record of unassisted claims, milestones &amp; oral defenses
-              </p>
+              <h3 className="font-serif text-lg font-bold text-slate-900">Venture Portfolio</h3>
+              <p className="text-xs text-stone-500">Printable record of unassisted claims &amp; oral defenses</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#223528] text-white text-xs font-bold hover:bg-[#19271e] cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#223528] text-white text-xs font-bold cursor-pointer"
             >
               <Printer className="h-3.5 w-3.5" />
-              <span>Print / Save PDF</span>
+              <span>Print / PDF</span>
             </button>
             <button
               type="button"
-              onClick={() => setIsPortfolioModalOpen(false)}
-              className="p-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 cursor-pointer"
+              onClick={() => setIsPortfolioOpen(false)}
+              className="p-2 rounded-xl text-stone-400 hover:bg-stone-200/60 cursor-pointer"
             >
               <X className="h-5 w-5" />
             </button>
@@ -56,51 +52,40 @@ export const PortfolioExportModal: React.FC = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-xs bg-white">
-          <div className="border-b border-stone-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-800 font-bold">
-                Daleel Verified Student Artifact
-              </span>
-              <h1 className="font-serif text-2xl font-extrabold text-slate-900 mt-0.5">
-                {student.name} — {activeBlueprint.title}
-              </h1>
-              <p className="text-stone-500 mt-0.5">
-                {student.grade} • {student.role} • {activeBlueprint.subjectArea}
-              </p>
-            </div>
-            <div className="text-left sm:text-right font-mono text-[11px] text-stone-500">
-              <div>Grades {activeBlueprint.gradeBand}</div>
-              <div>{activeBlueprint.estimatedHours} Instructional Hours</div>
-            </div>
+          <div className="border-b border-stone-200 pb-4">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-800 font-bold">
+              Daleel Student Portfolio
+            </span>
+            <h1 className="font-serif text-2xl font-extrabold text-slate-900 mt-0.5">
+              {activeStudent.name} — {activeBlueprint.title}
+            </h1>
+            <p className="text-stone-500 mt-0.5">
+              {activeStudent.grade} • {activeStudent.podName} • {activeBlueprint.subjectArea}
+            </p>
           </div>
 
           <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200">
             <strong className="text-slate-900 block mb-1">Driving Question</strong>
-            <p className="text-stone-700 leading-relaxed">{activeBlueprint.drivingQuestion}</p>
+            <p className="text-stone-700">{activeBlueprint.drivingQuestion}</p>
           </div>
 
           <div className="space-y-3">
             <h4 className="font-serif text-sm font-bold text-slate-900">
-              Unassisted Milestone Claims ({claimEntries.length})
+              Unassisted Claims ({claims.length})
             </h4>
-            {claimEntries.length === 0 ? (
-              <p className="text-stone-400 italic">
-                No initial claims locked yet. Open any level and submit your Claim-First artifact.
-              </p>
+            {claims.length === 0 ? (
+              <p className="text-stone-400 italic">No claims submitted yet.</p>
             ) : (
-              claimEntries.map((c) => (
-                <div
-                  key={c.levelNumber}
-                  className="p-3.5 rounded-2xl border border-stone-200 bg-[#FAFAF9] space-y-1"
-                >
-                  <div className="flex items-center justify-between">
+              claims.map((c) => (
+                <div key={c.levelNumber} className="p-3.5 rounded-2xl border border-stone-200 bg-[#FAFAF9]">
+                  <div className="flex items-center justify-between mb-1">
                     <span className="font-bold text-slate-900 flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
                       Level {c.levelNumber} Claim
                     </span>
                     <span className="text-[10px] font-mono text-stone-400">{c.submittedAt}</span>
                   </div>
-                  <p className="text-stone-700 leading-relaxed">{c.claimText}</p>
+                  <p className="text-stone-700">{c.claimText}</p>
                 </div>
               ))
             )}
@@ -108,22 +93,15 @@ export const PortfolioExportModal: React.FC = () => {
 
           <div className="space-y-3">
             <h4 className="font-serif text-sm font-bold text-slate-900">
-              Oral Defense (Viva Voce) Evaluations ({vivaEntries.length})
+              Oral Defense Evaluations ({vivas.length})
             </h4>
-            {vivaEntries.length === 0 ? (
-              <p className="text-stone-400 italic">
-                No oral defense recordings evaluated yet.
-              </p>
+            {vivas.length === 0 ? (
+              <p className="text-stone-400 italic">No oral defenses submitted yet.</p>
             ) : (
-              vivaEntries.map(([lvl, sub]) => (
-                <div
-                  key={lvl}
-                  className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-2"
-                >
+              vivas.map(([lvl, sub]) => (
+                <div key={lvl} className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <strong className="text-slate-900">
-                      Level {lvl} Oral Defense ({sub.durationSeconds}s)
-                    </strong>
+                    <strong className="text-slate-900">Level {lvl} ({sub.durationSeconds}s)</strong>
                     <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                       {sub.evaluation.overallReadiness}
                     </span>

@@ -2,35 +2,36 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { VentureBlueprint, ClaimArtifact } from '../types/venture';
-import { TRAILSPARK_REFERENCE_BLUEPRINT } from '../data/referenceBlueprints';
-import { BatchLogRecord } from '../types';
+import {
+  WATERSHED_ENGINEERING_BLUEPRINT,
+  COMMUNITY_ECONOMICS_BLUEPRINT,
+  TRAILSPARK_REFERENCE_BLUEPRINT,
+} from '../data/referenceBlueprints';
 
-export interface PersistedHelpRequest {
+export interface HelpRequestItem {
   id: string;
   studentId: string;
   studentName: string;
-  studentRole: string;
+  levelNumber: number;
   levelTitle: string;
   message: string;
   timestamp: string;
   status: 'pending' | 'resolved';
-  priority?: 'normal' | 'stall_3x' | 'safeguarding';
+  priority: 'normal' | 'stall_3x' | 'safeguarding';
 }
 
-export interface PersistedDiscussionPost {
+export interface DiscussionPostItem {
   id: string;
   authorName: string;
   authorRole: string;
-  avatarColor: string;
   topic: string;
   badge: string;
   content: string;
   timestamp: string;
   likes: number;
-  replies: number;
 }
 
-export interface PersistedVivaSubmission {
+export interface VivaSubmissionItem {
   transcript: string;
   durationSeconds: number;
   evaluation: {
@@ -42,7 +43,15 @@ export interface PersistedVivaSubmission {
   submittedAt: string;
 }
 
-export interface PersistedParentNote {
+export interface StudentRecord {
+  id: string;
+  name: string;
+  grade: string;
+  podName: string;
+  joinedAt: string;
+}
+
+export interface ParentNoteItem {
   id: string;
   studentId: string;
   text: string;
@@ -51,92 +60,78 @@ export interface PersistedParentNote {
 
 export interface ClassroomStateSnapshot {
   version: number;
+  joinCode: string;
   activeBlueprint: VentureBlueprint;
-  helpRequests: PersistedHelpRequest[];
-  discussionPosts: PersistedDiscussionPost[];
+  students: StudentRecord[];
+  helpRequests: HelpRequestItem[];
+  discussionPosts: DiscussionPostItem[];
   claimsByStudent: Record<string, Record<number, ClaimArtifact>>;
   completedLevelsByStudent: Record<string, number[]>;
-  vivaByStudent: Record<string, Record<number, PersistedVivaSubmission>>;
+  vivaByStudent: Record<string, Record<number, VivaSubmissionItem>>;
   pausedStudentIds: Record<string, boolean>;
   directMessagesByStudent: Record<string, Array<{ id: string; text: string; timestamp: string }>>;
   studentSignals: Record<string, { misconceptionTag: string | null; confidenceTag: string }>;
-  batchLogsByStudent: Record<string, BatchLogRecord>;
-  parentNotes: PersistedParentNote[];
+  parentNotes: ParentNoteItem[];
 }
 
+export const STARTER_BLUEPRINTS: VentureBlueprint[] = [
+  WATERSHED_ENGINEERING_BLUEPRINT,
+  COMMUNITY_ECONOMICS_BLUEPRINT,
+  {
+    ...TRAILSPARK_REFERENCE_BLUEPRINT,
+    title: 'Sustainable Food Formulation Lab',
+  },
+];
+
 function getStorePath(): string {
-  // Use /tmp on serverless platforms (like Vercel) where project root is read-only
   const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
   if (isServerless) {
-    return path.join(os.tmpdir(), 'daleel-classroom-store.json');
+    return path.join(os.tmpdir(), 'daleel-clean-store.json');
   }
-  return path.join(process.cwd(), '.daleel-classroom-store.json');
+  return path.join(process.cwd(), '.daleel-clean-store.json');
 }
 
 function createInitialState(): ClassroomStateSnapshot {
   return {
     version: 1,
-    activeBlueprint: TRAILSPARK_REFERENCE_BLUEPRINT,
-    helpRequests: [
+    joinCode: 'DALEEL9',
+    activeBlueprint: WATERSHED_ENGINEERING_BLUEPRINT,
+    students: [
       {
-        id: 'help-init-1',
-        studentId: 'samir-haddad',
-        studentName: 'Samir Haddad',
-        studentRole: 'Kitchen Science & Formulation Lead',
-        levelTitle: 'Level 3: Kitchen Fair Test',
-        message:
-          'Samir flagged a dual-variable trial in Batch 03 (Date Paste + 350°F) and requested teacher assistance with variable isolation.',
-        timestamp: '14:18',
-        status: 'pending',
-        priority: 'normal',
+        id: 'student-1',
+        name: 'Lina Mansour',
+        grade: 'Grade 8',
+        podName: 'Pod A',
+        joinedAt: 'Today',
+      },
+      {
+        id: 'student-2',
+        name: 'Omar Khoury',
+        grade: 'Grade 8',
+        podName: 'Pod B',
+        joinedAt: 'Today',
       },
     ],
+    helpRequests: [],
     discussionPosts: [
       {
         id: 'disc-1',
-        authorName: 'Samir Haddad',
-        authorRole: 'Lab Scientist & Biothermal Lead',
-        avatarColor: 'bg-emerald-600',
-        topic: 'Single-Variable Control (325°F vs 350°F)',
-        badge: 'Physical Science',
+        authorName: 'Lina Mansour',
+        authorRole: 'Student • Pod A',
+        topic: 'Testing one filter layer at a time',
+        badge: 'Variable Control',
         content:
-          'Quick heads-up to all kitchen pods: when I switched from honey to date paste AND raised the oven to 350°F, my bar browned too quickly and I could not prove which variable caused the chewiness!',
-        timestamp: '14 mins ago',
-        likes: 12,
-        replies: 4,
-      },
-      {
-        id: 'disc-2',
-        authorName: 'Jad Mansour',
-        authorRole: 'Unit Economics & Algebra Lead',
-        avatarColor: 'bg-blue-600',
-        topic: 'Date Paste Unit Cost Breakthrough',
-        badge: 'Economics',
-        content:
-          'Checked our linear cost model C(x) = Fixed + Variable(x). Switching 40g of honey ($0.022/g) to local date paste ($0.018/g) saves $0.16 per bar and lifts our gross margin to 71.2%.',
-        timestamp: '9 mins ago',
-        likes: 15,
-        replies: 6,
+          'When we kept water volume and slope constant and only changed biochar depth, our turbidity drop became much easier to measure.',
+        timestamp: 'Just now',
+        likes: 3,
       },
     ],
     claimsByStudent: {},
-    completedLevelsByStudent: {
-      'samir-haddad': [1, 2],
-    },
+    completedLevelsByStudent: {},
     vivaByStudent: {},
     pausedStudentIds: {},
     directMessagesByStudent: {},
-    studentSignals: {
-      'samir-haddad': {
-        misconceptionTag: 'multivariate_variable_confusion',
-        confidenceTag: 'confident_misconception',
-      },
-      'jad-mansour': {
-        misconceptionTag: null,
-        confidenceTag: 'hesitant_accurate',
-      },
-    },
-    batchLogsByStudent: {},
+    studentSignals: {},
     parentNotes: [],
   };
 }
@@ -153,7 +148,7 @@ export function readClassroomStore(): ClassroomStateSnapshot {
       return memoryStore;
     }
   } catch {
-    // Fallback to initial state
+    // Fallback
   }
   memoryStore = createInitialState();
   writeClassroomStore(memoryStore);
@@ -166,7 +161,7 @@ export function writeClassroomStore(next: ClassroomStateSnapshot): ClassroomStat
   try {
     fs.writeFileSync(getStorePath(), JSON.stringify(next, null, 2), 'utf8');
   } catch {
-    // Serverless memory cache remains valid for warm instances
+    // Serverless memory cache remains valid
   }
   return memoryStore;
 }

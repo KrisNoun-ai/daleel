@@ -93,3 +93,53 @@ export interface TurnClassifierResult {
     reason?: string;
   };
 }
+
+export interface HelpRequestItem {
+  id: string;
+  studentId: string;
+  studentName: string;
+  levelNumber: number;
+  levelTitle: string;
+  message: string;
+  timestamp: string;
+  status: 'pending' | 'resolved';
+  priority: 'normal' | 'stall_3x' | 'safeguarding';
+}
+
+export interface DiscussionPostItem {
+  id: string;
+  authorName: string;
+  authorRole: string;
+  topic: string;
+  badge: string;
+  content: string;
+  timestamp: string;
+  likes: number;
+}
+
+export interface VivaSubmissionItem {
+  transcript: string;
+  durationSeconds: number;
+  evaluation: {
+    overallReadiness: string;
+    strengths: string[];
+    followUpQuestion: string;
+    criterionScores: Array<{ criterion: string; level: string; note: string }>;
+  };
+  submittedAt: string;
+}
+
+export interface StudentRecord {
+  id: string;
+  name: string;
+  grade: string;
+  podName: string;
+  joinedAt: string;
+}
+
+export interface ParentNoteItem {
+  id: string;
+  studentId: string;
+  text: string;
+  timestamp: string;
+}
